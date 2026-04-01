@@ -19,17 +19,23 @@ class FakeInitializer:
         brief = ResearchBrief(
             target=target,
             product_type="coding-agent",
-            competitor_definition="Terminal-based coding agents",
-            required_dimensions=["positioning", "workflow", "pricing"],
-            stop_policy="stop when confidence is high",
+            competitor_definition="Direct competitors are terminal-native coding agents for software engineers.",
+            required_dimensions=[
+                "positioning",
+                "workflow",
+                "core capabilities",
+                "pricing or access",
+                "community / ecosystem signal",
+            ],
+            stop_policy="Stop after enough confirmed competitors with coverage.",
             budget=budget,
         )
         charter = RunCharter(
-            mission=f"Competitive research charter for {target}.",
-            scope=["positioning", "github", "heat", "workflow", "pricing"],
-            non_goals=["Deep product teardown", "Hands-on benchmarking"],
-            success_criteria=["A defensible competitor set with cited evidence"],
-            research_agenda=["Discover candidates", "Collect evidence", "Synthesize comparison"],
+            mission=f"Research competitors for {target}",
+            scope=["direct competitors", "terminal coding agents"],
+            non_goals=["broad LLM platform analysis"],
+            success_criteria=["3 confirmed competitors", "all required dimensions covered"],
+            research_agenda=["expand", "deepen", "challenge"],
         )
         return brief, charter
 

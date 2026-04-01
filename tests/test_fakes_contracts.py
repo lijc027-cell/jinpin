@@ -15,13 +15,25 @@ def test_fake_initializer_run_returns_brief_and_charter():
     assert isinstance(brief.budget, BudgetPolicy)
     assert brief.target == "Claude Code"
     assert brief.product_type == "coding-agent"
-    assert brief.competitor_definition == "Terminal-based coding agents"
-    assert brief.required_dimensions == ["positioning", "workflow", "pricing"]
-    assert brief.stop_policy == "stop when confidence is high"
+    assert (
+        brief.competitor_definition
+        == "Direct competitors are terminal-native coding agents for software engineers."
+    )
+    assert brief.required_dimensions == [
+        "positioning",
+        "workflow",
+        "core capabilities",
+        "pricing or access",
+        "community / ecosystem signal",
+    ]
+    assert brief.stop_policy == "Stop after enough confirmed competitors with coverage."
 
     assert isinstance(charter, RunCharter)
-    assert charter.mission == "Competitive research charter for Claude Code."
-    assert charter.scope == ["positioning", "github", "heat", "workflow", "pricing"]
+    assert charter.mission == "Research competitors for Claude Code"
+    assert charter.scope == ["direct competitors", "terminal coding agents"]
+    assert charter.non_goals == ["broad LLM platform analysis"]
+    assert charter.success_criteria == ["3 confirmed competitors", "all required dimensions covered"]
+    assert charter.research_agenda == ["expand", "deepen", "challenge"]
 
 
 def test_fake_stop_judge_run_returns_stop_decision():
