@@ -3,6 +3,7 @@ from __future__ import annotations
 from jingyantai.domain.models import BudgetPolicy, ResearchBrief, RunCharter, StopDecision
 from jingyantai.domain.phases import StopVerdict
 
+from jingyantai.agents import contracts as agent_contracts
 from jingyantai.agents.prompts import ROLE_PROMPTS
 
 from tests.fakes import FakeInitializer, FakeStopJudge
@@ -62,3 +63,16 @@ def test_role_prompts_registry_contains_all_plan_keys():
         "citation_agent",
     }
     assert expected_keys.issubset(ROLE_PROMPTS.keys())
+
+
+def test_agent_contracts_do_not_use_object_return_placeholders():
+    # Smoke test: contracts must not hide plan drift behind `-> object`.
+    protocols = [
+        agent_contracts.JudgeAgent,
+        agent_contracts.SynthesizerAgent,
+        agent_contracts.CitationAgent,
+    ]
+    for proto in protocols:
+        assert hasattr(proto, "run")
+        return_ann = getattr(proto.run, "__annotations__", {}).get("return")
+        assert return_ann not in {object, "object", "builtins.object"}

@@ -34,7 +34,7 @@ class AnalystAgent(Protocol):
 
 
 class JudgeAgent(Protocol):
-    def run(self, state: RunState) -> object: ...
+    def run(self, state: RunState): ...
 
 
 class StopJudgeAgent(Protocol):
@@ -42,8 +42,8 @@ class StopJudgeAgent(Protocol):
 
 
 class SynthesizerAgent(Protocol):
-    def run(self, state: RunState) -> object: ...
+    def run(self, state: RunState): ...
 
 
 class CitationAgent(Protocol):
-    def run(self, state: RunState) -> object: ...
+    def run(self, state: RunState): ...
