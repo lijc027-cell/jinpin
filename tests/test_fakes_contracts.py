@@ -66,13 +66,21 @@ def test_role_prompts_registry_contains_all_plan_keys():
 
 
 def test_agent_contracts_do_not_use_object_return_placeholders():
-    # Smoke test: contracts must not hide plan drift behind `-> object`.
-    protocols = [
-        agent_contracts.JudgeAgent,
-        agent_contracts.SynthesizerAgent,
-        agent_contracts.CitationAgent,
-    ]
-    for proto in protocols:
-        assert hasattr(proto, "run")
-        return_ann = getattr(proto.run, "__annotations__", {}).get("return")
-        assert return_ann not in {object, "object", "builtins.object"}
+    import inspect
+
+    # Smoke test: contracts must match downstream runtime expectations.
+    judge_sig = inspect.signature(agent_contracts.JudgeAgent.run)
+    assert list(judge_sig.parameters.keys()) == ["self", "state"]
+    judge_ret = agent_contracts.JudgeAgent.run.__annotations__.get("return")
+    assert judge_ret in {"ReviewDecision", agent_contracts.ReviewDecision}
+
+    synth_sig = inspect.signature(agent_contracts.SynthesizerAgent.run)
+    assert list(synth_sig.parameters.keys()) == ["self", "state"]
+    synth_ret = agent_contracts.SynthesizerAgent.run.__annotations__.get("return")
+    assert synth_ret in {"FinalReport", agent_contracts.FinalReport}
+
+    cite_sig = inspect.signature(agent_contracts.CitationAgent.run)
+    assert list(cite_sig.parameters.keys()) == ["self", "state", "draft"]
+    cite_ann = agent_contracts.CitationAgent.run.__annotations__
+    assert cite_ann.get("draft") in {"FinalReport", agent_contracts.FinalReport}
+    assert cite_ann.get("return") in {"FinalReport", agent_contracts.FinalReport}

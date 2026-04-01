@@ -7,7 +7,9 @@ from jingyantai.domain.models import (
     Evidence,
     Finding,
     GapTicket,
+    FinalReport,
     ResearchBrief,
+    ReviewDecision,
     RunCharter,
     RunState,
     StopDecision,
@@ -34,7 +36,7 @@ class AnalystAgent(Protocol):
 
 
 class JudgeAgent(Protocol):
-    def run(self, state: RunState): ...
+    def run(self, state: RunState) -> ReviewDecision: ...
 
 
 class StopJudgeAgent(Protocol):
@@ -42,8 +44,8 @@ class StopJudgeAgent(Protocol):
 
 
 class SynthesizerAgent(Protocol):
-    def run(self, state: RunState): ...
+    def run(self, state: RunState) -> FinalReport: ...
 
 
 class CitationAgent(Protocol):
-    def run(self, state: RunState): ...
+    def run(self, state: RunState, draft: FinalReport) -> FinalReport: ...
