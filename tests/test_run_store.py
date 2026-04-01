@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from jingyantai.domain.models import BudgetPolicy, RunState, RunTrace
+import pytest
+
+from jingyantai.domain.models import BudgetPolicy, FinalReport, RunState, RunTrace
 from jingyantai.domain.phases import Phase
 from jingyantai.storage.run_store import FileRunStore
 
@@ -19,6 +21,8 @@ def test_run_store_persists_and_loads_state(tmp_path: Path):
 
     assert loaded.run_id == "run-1"
     assert loaded.target == "Claude Code"
+    assert loaded.current_phase == Phase.INITIALIZE
+    assert loaded.budget == state.budget
 
 
 def test_run_store_appends_trace_files(tmp_path: Path):
@@ -37,3 +41,28 @@ def test_run_store_appends_trace_files(tmp_path: Path):
     store.append_trace("run-1", trace)
 
     assert (tmp_path / "run-1" / "traces" / "000-initialize.json").exists()
+
+
+def test_load_state_missing_run_does_not_create_run_dir(tmp_path: Path):
+    store = FileRunStore(tmp_path)
+
+    with pytest.raises(FileNotFoundError):
+        store.load_state("missing-run")
+
+    assert not (tmp_path / "missing-run").exists()
+
+
+def test_save_report_writes_to_artifacts_final_report(tmp_path: Path):
+    store = FileRunStore(tmp_path)
+    report = FinalReport(
+        target_summary="Summary",
+        confirmed_competitors=["Comp A"],
+        rejected_candidates=["Comp B"],
+        comparison_matrix=[{"name": "Comp A", "positioning": "direct"}],
+        key_uncertainties=["uncertain pricing"],
+        citations={"Comp A": ["https://example.com"]},
+    )
+
+    store.save_report("run-1", report)
+
+    assert (tmp_path / "run-1" / "artifacts" / "final-report.json").exists()

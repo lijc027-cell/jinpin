@@ -11,12 +11,11 @@ class FileRunStore:
         self._root_dir = Path(root_dir)
 
     def _run_dir(self, run_id: str) -> Path:
-        run_dir = self._root_dir / run_id
-        run_dir.mkdir(parents=True, exist_ok=True)
-        return run_dir
+        return self._root_dir / run_id
 
     def save_state(self, state: RunState) -> None:
         run_dir = self._run_dir(state.run_id)
+        run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "artifacts").mkdir(parents=True, exist_ok=True)
         (run_dir / "traces").mkdir(parents=True, exist_ok=True)
         state_path = run_dir / "state.json"
@@ -28,12 +27,16 @@ class FileRunStore:
         return RunState.model_validate(payload)
 
     def append_trace(self, run_id: str, trace: RunTrace) -> None:
-        traces_dir = self._run_dir(run_id) / "traces"
+        run_dir = self._run_dir(run_id)
+        run_dir.mkdir(parents=True, exist_ok=True)
+        traces_dir = run_dir / "traces"
         traces_dir.mkdir(parents=True, exist_ok=True)
         trace_path = traces_dir / f"{trace.round_index:03d}-{trace.phase.value}.json"
         trace_path.write_text(trace.model_dump_json(indent=2), encoding="utf-8")
 
     def save_report(self, run_id: str, report: FinalReport) -> None:
-        report_path = self._run_dir(run_id) / "artifacts" / "final-report.json"
+        run_dir = self._run_dir(run_id)
+        run_dir.mkdir(parents=True, exist_ok=True)
+        report_path = run_dir / "artifacts" / "final-report.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
