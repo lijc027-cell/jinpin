@@ -26,6 +26,7 @@ class ResearchBrief(BaseModel):
     competitor_definition: str
     required_dimensions: list[str]
     stop_policy: str
+    budget: BudgetPolicy
 
 
 class RunCharter(BaseModel):

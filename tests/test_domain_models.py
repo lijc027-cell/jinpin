@@ -1,6 +1,7 @@
 import pytest
+from pydantic import ValidationError
 
-from jingyantai.domain.models import BudgetPolicy, Candidate, RunState
+from jingyantai.domain.models import BudgetPolicy, Candidate, ResearchBrief, RunState
 from jingyantai.domain.phases import CandidateStatus, Phase
 
 
@@ -34,3 +35,14 @@ def test_run_state_returns_top_candidates_in_priority_order():
     )
 
     assert [candidate.name for candidate in state.top_candidates(limit=2)] == ["B", "A"]
+
+
+def test_research_brief_requires_budget():
+    with pytest.raises(ValidationError):
+        ResearchBrief(
+            target="Claude Code",
+            product_type="coding-agent",
+            competitor_definition="Terminal-based coding agents",
+            required_dimensions=["workflow", "automation"],
+            stop_policy="stop when confidence is high",
+        )
