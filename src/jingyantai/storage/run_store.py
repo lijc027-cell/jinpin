@@ -34,9 +34,10 @@ class FileRunStore:
         trace_path = traces_dir / f"{trace.round_index:03d}-{trace.phase.value}.json"
         trace_path.write_text(trace.model_dump_json(indent=2), encoding="utf-8")
 
-    def save_report(self, run_id: str, report: FinalReport) -> None:
+    def save_report(self, run_id: str, report: FinalReport) -> Path:
         run_dir = self._run_dir(run_id)
         run_dir.mkdir(parents=True, exist_ok=True)
         report_path = run_dir / "artifacts" / "final-report.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
+        return report_path

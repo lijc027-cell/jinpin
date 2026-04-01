@@ -63,6 +63,7 @@ def test_save_report_writes_to_artifacts_final_report(tmp_path: Path):
         citations={"Comp A": ["https://example.com"]},
     )
 
-    store.save_report("run-1", report)
+    saved_path = store.save_report("run-1", report)
 
     assert (tmp_path / "run-1" / "artifacts" / "final-report.json").exists()
+    assert saved_path == tmp_path / "run-1" / "artifacts" / "final-report.json"
