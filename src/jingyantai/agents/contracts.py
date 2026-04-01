@@ -4,13 +4,14 @@ from typing import Protocol
 
 from jingyantai.domain.models import (
     Candidate,
-    FinalReport,
+    Evidence,
     Finding,
+    GapTicket,
     ResearchBrief,
-    ReviewDecision,
     RunCharter,
     RunState,
     StopDecision,
+    UncertaintyItem,
 )
 
 
@@ -27,11 +28,13 @@ class ScoutAgent(Protocol):
 
 
 class AnalystAgent(Protocol):
-    def run(self, state: RunState) -> list[Finding]: ...
+    def run(
+        self, state: RunState, candidate: Candidate
+    ) -> tuple[list[Evidence], list[Finding], list[UncertaintyItem]]: ...
 
 
 class JudgeAgent(Protocol):
-    def run(self, state: RunState) -> list[ReviewDecision]: ...
+    def run(self, state: RunState) -> list[GapTicket]: ...
 
 
 class StopJudgeAgent(Protocol):
@@ -39,8 +42,8 @@ class StopJudgeAgent(Protocol):
 
 
 class SynthesizerAgent(Protocol):
-    def run(self, state: RunState) -> FinalReport: ...
+    def run(self, state: RunState) -> str: ...
 
 
 class CitationAgent(Protocol):
-    def run(self, report: FinalReport) -> FinalReport: ...
+    def run(self, report: str, evidence: list[Evidence]) -> str: ...

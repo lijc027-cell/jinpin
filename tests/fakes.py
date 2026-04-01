@@ -18,18 +18,18 @@ class FakeInitializer:
         )
         brief = ResearchBrief(
             target=target,
-            product_type="developer tool",
-            competitor_definition="Tools that solve the same job-to-be-done for the same user segment.",
+            product_type="coding-agent",
+            competitor_definition="Terminal-based coding agents",
             required_dimensions=["positioning", "workflow", "pricing"],
-            stop_policy="stop when enough confirmed competitors exist for a useful comparison",
+            stop_policy="stop when confidence is high",
             budget=budget,
         )
         charter = RunCharter(
-            mission=f"Produce a competitor map for {target}.",
-            scope=["Identify direct competitors", "Capture positioning and pricing"],
-            non_goals=["Exhaustive feature-by-feature analysis"],
-            success_criteria=["At least 3 confirmed competitors with citations"],
-            research_agenda=["Seed candidates", "Validate candidates", "Summarize differences"],
+            mission=f"Competitive research charter for {target}.",
+            scope=["positioning", "github", "heat", "workflow", "pricing"],
+            non_goals=["Deep product teardown", "Hands-on benchmarking"],
+            success_criteria=["A defensible competitor set with cited evidence"],
+            research_agenda=["Discover candidates", "Collect evidence", "Synthesize comparison"],
         )
         return brief, charter
 
@@ -41,7 +41,4 @@ class FakeStopJudge:
         self._verdict = verdict
 
     def run(self, _state: object | None) -> StopDecision:
-        reasons = ["Continue: fake stop judge keeps the run going."]
-        if self._verdict == StopVerdict.STOP:
-            reasons = ["Stop: fake stop judge ends the run."]
-        return StopDecision(verdict=self._verdict, reasons=reasons, gap_tickets=[])
+        return StopDecision(verdict=self._verdict, reasons=["test verdict"], gap_tickets=[])
