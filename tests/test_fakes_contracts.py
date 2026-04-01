@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from jingyantai.domain.models import BudgetPolicy, ResearchBrief, RunCharter, StopDecision
-from jingyantai.domain.phases import StopVerdict
+import inspect
+
+from jingyantai.domain.models import BudgetPolicy, ResearchBrief, RunCharter, RunState, StopDecision
+from jingyantai.domain.phases import Phase, StopVerdict
 
 from jingyantai.agents import contracts as agent_contracts
 from jingyantai.agents.prompts import ROLE_PROMPTS
 
-from tests.fakes import FakeInitializer, FakeStopJudge
+from fakes import FakeInitializer, FakeStopJudge
 
 
 def test_fake_initializer_run_returns_brief_and_charter():
@@ -38,7 +40,23 @@ def test_fake_initializer_run_returns_brief_and_charter():
 
 
 def test_fake_stop_judge_run_returns_stop_decision():
-    decision = FakeStopJudge(StopVerdict.CONTINUE).run(None)
+    sig = inspect.signature(FakeStopJudge.run)
+    assert list(sig.parameters.keys()) == ["self", "state"]
+    assert sig.parameters["state"].annotation in {RunState, "RunState"}
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.INITIALIZE,
+        budget=BudgetPolicy(
+            max_rounds=4,
+            max_active_candidates=8,
+            max_deepen_targets=3,
+            max_external_fetches=30,
+            max_run_duration_minutes=20,
+        ),
+    )
+    decision = FakeStopJudge(StopVerdict.CONTINUE).run(state)
 
     assert isinstance(decision, StopDecision)
     assert decision.verdict == StopVerdict.CONTINUE
@@ -66,8 +84,6 @@ def test_role_prompts_registry_contains_all_plan_keys():
 
 
 def test_agent_contracts_do_not_use_object_return_placeholders():
-    import inspect
-
     # Smoke test: contracts must match downstream runtime expectations.
     judge_sig = inspect.signature(agent_contracts.JudgeAgent.run)
     assert list(judge_sig.parameters.keys()) == ["self", "state"]

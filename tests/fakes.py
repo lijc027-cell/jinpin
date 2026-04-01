@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from jingyantai.domain.models import BudgetPolicy, ResearchBrief, RunCharter, StopDecision
+from jingyantai.domain.models import BudgetPolicy, ResearchBrief, RunCharter, RunState, StopDecision
 from jingyantai.domain.phases import StopVerdict
 
 
@@ -46,5 +46,5 @@ class FakeStopJudge:
     def __init__(self, verdict: StopVerdict) -> None:
         self._verdict = verdict
 
-    def run(self, _state: object | None) -> StopDecision:
+    def run(self, state: RunState) -> StopDecision:
         return StopDecision(verdict=self._verdict, reasons=["test verdict"], gap_tickets=[])

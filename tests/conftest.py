@@ -6,8 +6,9 @@ from pathlib import Path
 import pytest
 
 
-# Ensure repo root is importable so `from tests.fakes import ...` works under pytest importlib mode.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# Ensure the repo's `tests/` directory is importable so `from fakes import ...` is stable
+# and does not depend on a potentially-conflicting external `tests` package name.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 
 @pytest.fixture
