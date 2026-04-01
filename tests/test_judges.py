@@ -1,7 +1,15 @@
 from __future__ import annotations
 
-from jingyantai.domain.models import BudgetPolicy, Candidate, Finding, ResearchBrief, RunState
-from jingyantai.domain.phases import CandidateStatus, Phase, StopVerdict
+from jingyantai.domain.models import (
+    BudgetPolicy,
+    Candidate,
+    Finding,
+    OpenQuestion,
+    ResearchBrief,
+    ReviewDecision,
+    RunState,
+)
+from jingyantai.domain.phases import CandidateStatus, GapPriority, Phase, ReviewVerdict, StopVerdict
 
 
 def _minimal_budget() -> BudgetPolicy:
@@ -14,14 +22,15 @@ def _minimal_budget() -> BudgetPolicy:
     )
 
 
-def test_stop_judge_confirmed_candidate_missing_required_dimensions_continues_with_analyst_gap_ticket():
+def test_stop_judge_requires_required_dimensions_constructor_and_does_not_depend_on_brief():
     from jingyantai.runtime.judges import StopJudge
 
     brief = ResearchBrief(
         target="Claude Code",
         product_type="coding-agent",
         competitor_definition="Direct competitors are terminal-native coding agents for software engineers.",
-        required_dimensions=["workflow", "pricing"],
+        # Intentionally wrong: StopJudge must not depend on state.brief.required_dimensions.
+        required_dimensions=["not-used"],
         stop_policy="Stop after enough confirmed competitors with coverage.",
         budget=_minimal_budget(),
     )
@@ -55,11 +64,76 @@ def test_stop_judge_confirmed_candidate_missing_required_dimensions_continues_wi
         )
     )
 
-    decision = StopJudge().run(state)
+    decision = StopJudge(required_dimensions=["workflow", "pricing"]).run(state)
 
     assert decision.verdict == StopVerdict.CONTINUE
     assert decision.gap_tickets
     assert any(ticket.owner_role == "analyst" for ticket in decision.gap_tickets)
+
+
+def test_stop_judge_does_not_count_finding_as_coverage_without_evidence():
+    from jingyantai.runtime.judges import StopJudge
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.STOP,
+        budget=_minimal_budget(),
+        round_index=1,
+    )
+    state.candidates.append(
+        Candidate(
+            candidate_id="c1",
+            name="Competitor One",
+            canonical_url="https://c1.dev",
+            status=CandidateStatus.CONFIRMED,
+            relevance_score=0.9,
+            why_candidate="direct",
+        )
+    )
+    # Findings exist for all dimensions, but there is no evidence; must still CONTINUE.
+    state.findings.extend(
+        [
+            Finding(
+                finding_id="f1",
+                subject_id="c1",
+                dimension="workflow",
+                summary="Workflow summary.",
+                evidence_ids=["missing-e1"],
+                confidence=0.8,
+            ),
+            Finding(
+                finding_id="f2",
+                subject_id="c1",
+                dimension="pricing",
+                summary="Pricing summary.",
+                evidence_ids=["missing-e2"],
+                confidence=0.8,
+            ),
+        ]
+    )
+
+    decision = StopJudge(required_dimensions=["workflow", "pricing"]).run(state)
+
+    assert decision.verdict == StopVerdict.CONTINUE
+
+
+def test_challenger_returns_review_decision():
+    from jingyantai.runtime.judges import Challenger
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.CHALLENGE,
+        budget=_minimal_budget(),
+        round_index=1,
+    )
+
+    decision = Challenger().run(state)
+
+    assert isinstance(decision, ReviewDecision)
+    assert decision.judge_type == "challenger"
+    assert decision.verdict in {ReviewVerdict.WARN, ReviewVerdict.PASS, ReviewVerdict.FAIL}
 
 
 def test_context_compactor_compact_includes_target_and_top_candidate_snapshot():
@@ -89,10 +163,30 @@ def test_context_compactor_compact_includes_target_and_top_candidate_snapshot():
                 relevance_score=0.9,
                 why_candidate="top score",
             ),
+            Candidate(
+                candidate_id="c3",
+                name="Second",
+                canonical_url="https://second.dev",
+                status=CandidateStatus.PRIORITIZED,
+                relevance_score=0.8,
+                why_candidate="second",
+            ),
         ]
+    )
+    state.open_questions.append(
+        OpenQuestion(
+            question="What is the pricing model?",
+            target_subject="c2",
+            priority=GapPriority.HIGH,
+            owner_role="analyst",
+            created_by="coverage_judge",
+        )
     )
 
     snapshot = ContextCompactor().compact(state)
 
     assert "Claude Code" in snapshot
+    assert "converge" in snapshot.lower()
     assert "Top" in snapshot
+    assert "Second" in snapshot
+    assert "What is the pricing model?" in snapshot
