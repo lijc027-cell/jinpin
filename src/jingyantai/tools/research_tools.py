@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from urllib.parse import urlparse
 
 from jingyantai.tools.contracts import GitHubSignalsClient, PageData, PageExtractor, ResearchToolset, SearchClient
@@ -33,7 +32,7 @@ class ResearchTools(ResearchToolset):
         candidates: list[dict[str, str]] = []
         source_set = set(source_mix)
         seen_urls: set[str] = set()
-        seen_identities: set[str] = set()
+        seen_web_identities: set[str] = set()
 
         if "web" in source_set:
             query = f"{target} competitor {hypothesis}"
@@ -46,7 +45,7 @@ class ResearchTools(ResearchToolset):
                 domain = urlparse(hit.url).netloc.removeprefix("www.")
                 domain_root = self._domain_identity(hit.url)
                 if domain_root:
-                    seen_identities.add(domain_root)
+                    seen_web_identities.add(domain_root)
                 candidates.append(
                     {
                         "candidate_id": "",
@@ -69,11 +68,10 @@ class ResearchTools(ResearchToolset):
                 normalized_url = url.lower().rstrip("/")
                 if normalized_url in seen_urls:
                     continue
-                repo_tokens = {token for token in re.split(r"[/_.-]+", repo.lower()) if token}
-                if repo_tokens & seen_identities:
+                repo_owner, repo_name = (repo.lower().split("/", 1) + [""])[:2]
+                if repo_owner in seen_web_identities or repo_name in seen_web_identities:
                     continue
                 seen_urls.add(normalized_url)
-                seen_identities.update(repo_tokens)
                 candidates.append(
                     {
                         "candidate_id": "",

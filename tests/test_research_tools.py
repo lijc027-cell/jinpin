@@ -268,6 +268,45 @@ def test_search_competitor_candidates_uses_registered_domain_identity_not_subdom
     assert "https://github.com/firecrawl/firecrawl" not in urls
 
 
+class AgentAiSearchClient:
+    def search(self, query: str, max_results: int = 5) -> list[SearchHit]:
+        return [
+            SearchHit(
+                title="Agent AI",
+                url="https://agent.ai",
+                snippet="Agent AI platform.",
+            )
+        ]
+
+
+class AgentAiGithubSignalsClient:
+    def lookup(self, query: str) -> list[dict[str, str | int]]:
+        return [
+            {"repo": "acme/agent-kit", "stars": 700, "updated_at": "2026-03-31T00:00:00Z"},
+            {"repo": "agent/agent", "stars": 5000, "updated_at": "2026-03-31T00:00:00Z"},
+        ]
+
+
+def test_search_competitor_candidates_does_not_drop_github_repo_on_generic_token_overlap():
+    tools = ResearchTools(
+        search_client=AgentAiSearchClient(),
+        page_extractor=FakePageExtractor(),
+        github_signals=AgentAiGithubSignalsClient(),
+    )
+
+    candidates = tools.search_competitor_candidates(
+        target="Claude Code",
+        hypothesis="agent tooling",
+        source_mix=["web", "github"],
+        max_results=5,
+    )
+    urls = {item["canonical_url"] for item in candidates}
+
+    assert "https://agent.ai" in urls
+    assert "https://github.com/acme/agent-kit" in urls
+    assert "https://github.com/agent/agent" not in urls
+
+
 def test_research_tools_matches_agent_facing_protocol_and_signature():
     tools = ResearchTools(
         search_client=FakeSearchClient(),
