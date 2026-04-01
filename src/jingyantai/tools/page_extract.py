@@ -25,7 +25,8 @@ class HttpPageExtractor:
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "html.parser")
-        title = soup.title.string.strip() if soup.title and soup.title.string else url
+        final_url = str(response.url)
+        title = soup.title.string.strip() if soup.title and soup.title.string else final_url
         text = " ".join(soup.stripped_strings)
         excerpt = text[:280]
-        return PageData(url=url, title=title, text=text[:4000], excerpt=excerpt)
+        return PageData(url=final_url, title=title, text=text[:4000], excerpt=excerpt)
