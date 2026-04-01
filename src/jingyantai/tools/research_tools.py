@@ -12,6 +12,17 @@ class ResearchTools(ResearchToolset):
         self.page_extractor = page_extractor
         self.github_signals = github_signals
 
+    def _domain_identity(self, url: str) -> str:
+        domain = urlparse(url).netloc.removeprefix("www.").lower()
+        labels = [label for label in domain.split(".") if label]
+        if not labels:
+            return ""
+        if len(labels) == 1:
+            return labels[0]
+        if len(labels) >= 3 and labels[-2] in {"co", "com", "org", "net", "gov", "edu"}:
+            return labels[-3]
+        return labels[-2]
+
     def search_competitor_candidates(
         self,
         target: str,
@@ -33,7 +44,7 @@ class ResearchTools(ResearchToolset):
                     continue
                 seen_urls.add(normalized_url)
                 domain = urlparse(hit.url).netloc.removeprefix("www.")
-                domain_root = domain.split(".")[0].lower()
+                domain_root = self._domain_identity(hit.url)
                 if domain_root:
                     seen_identities.add(domain_root)
                 candidates.append(
@@ -111,16 +122,27 @@ class ResearchTools(ResearchToolset):
         ]
         web_signals: list[dict[str, str]] = []
         for hit in search_hits:
-            page = self.page_extractor.extract(hit.url)
-            web_signals.append(
-                {
-                    "source_url": page.url,
-                    "title": hit.title,
-                    "snippet": hit.snippet,
-                    "page_title": page.title,
-                    "page_excerpt": page.excerpt,
-                }
-            )
+            try:
+                page = self.page_extractor.extract(hit.url)
+                web_signals.append(
+                    {
+                        "source_url": page.url,
+                        "title": hit.title,
+                        "snippet": hit.snippet,
+                        "page_title": page.title,
+                        "page_excerpt": page.excerpt,
+                    }
+                )
+            except Exception:
+                web_signals.append(
+                    {
+                        "source_url": hit.url,
+                        "title": hit.title,
+                        "snippet": hit.snippet,
+                        "page_title": hit.title,
+                        "page_excerpt": "page extraction unavailable",
+                    }
+                )
 
         github = self.collect_github_ecosystem_signals(subject)
         signal_count = len(web_signals) + len(github)

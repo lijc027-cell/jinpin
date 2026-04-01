@@ -168,6 +168,17 @@ class TrackingPageExtractor(FakePageExtractor):
         return super().extract(url)
 
 
+class PartiallyFailingPageExtractor(FakePageExtractor):
+    def __init__(self, failing_url: str) -> None:
+        super().__init__()
+        self.failing_url = failing_url
+
+    def extract(self, url: str) -> PageData:
+        if url == self.failing_url:
+            raise RuntimeError("temporary extraction failure")
+        return super().extract(url)
+
+
 def test_build_evidence_bundle_fetches_main_url_once_but_allows_heat_pages():
     page = TrackingPageExtractor()
     tools = ResearchTools(
@@ -185,6 +196,76 @@ def test_build_evidence_bundle_fetches_main_url_once_but_allows_heat_pages():
     assert bundle["pricing_or_access"]["source_url"] == "https://aider.chat/landing"
     assert page.urls.count("https://aider.chat") == 1
     assert "https://codeium.com" in page.urls
+
+
+def test_collect_market_heat_signals_tolerates_single_page_extract_failure():
+    tools = ResearchTools(
+        search_client=FakeSearchClient(),
+        page_extractor=PartiallyFailingPageExtractor("https://cursor.com"),
+        github_signals=FakeGitHubSignalsClient(),
+    )
+
+    heat = tools.collect_market_heat_signals(subject="coding agent", max_results=2)
+
+    assert "summary" in heat
+    assert len(heat["search"]) == 2
+    assert len(heat["github"]) == 2
+    assert len(heat["web_signals"]) == 2
+    failed_signal = next(signal for signal in heat["web_signals"] if signal["title"].startswith("Cursor"))
+    assert failed_signal["source_url"] == "https://cursor.com"
+    assert failed_signal["page_excerpt"] == "page extraction unavailable"
+
+
+def test_build_evidence_bundle_survives_heat_extract_failure():
+    tools = ResearchTools(
+        search_client=FakeSearchClient(),
+        page_extractor=PartiallyFailingPageExtractor("https://cursor.com"),
+        github_signals=FakeGitHubSignalsClient(),
+    )
+
+    bundle = tools.build_evidence_bundle(subject="Aider", url="https://aider.chat")
+
+    assert set(bundle.keys()) == {"positioning", "workflow", "pricing_or_access", "github", "heat"}
+    assert "summary" in bundle["heat"]
+    assert len(bundle["heat"]["search"]) == 2
+
+
+class FirecrawlSubdomainSearchClient:
+    def search(self, query: str, max_results: int = 5) -> list[SearchHit]:
+        return [
+            SearchHit(
+                title="Firecrawl Docs",
+                url="https://docs.firecrawl.dev",
+                snippet="Official docs for Firecrawl.",
+            )
+        ]
+
+
+class FirecrawlGithubSignalsClient:
+    def lookup(self, query: str) -> list[dict[str, str | int]]:
+        return [
+            {"repo": "acme/docs-agent", "stars": 10, "updated_at": "2026-03-31T00:00:00Z"},
+            {"repo": "firecrawl/firecrawl", "stars": 9000, "updated_at": "2026-03-31T00:00:00Z"},
+        ]
+
+
+def test_search_competitor_candidates_uses_registered_domain_identity_not_subdomain_label():
+    tools = ResearchTools(
+        search_client=FirecrawlSubdomainSearchClient(),
+        page_extractor=FakePageExtractor(),
+        github_signals=FirecrawlGithubSignalsClient(),
+    )
+
+    candidates = tools.search_competitor_candidates(
+        target="Claude Code",
+        hypothesis="crawler",
+        source_mix=["web", "github"],
+        max_results=5,
+    )
+    urls = {item["canonical_url"] for item in candidates}
+
+    assert "https://github.com/acme/docs-agent" in urls
+    assert "https://github.com/firecrawl/firecrawl" not in urls
 
 
 def test_research_tools_matches_agent_facing_protocol_and_signature():
