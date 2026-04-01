@@ -38,7 +38,7 @@ class GitHubSignals:
                 {
                     "repo": str(item.get("full_name", "")),
                     "stars": stars,
-                    "releases": int(item.get("open_issues_count", 0)),
+                    "updated_at": str(item.get("updated_at", "")),
                 }
             )
         return repos

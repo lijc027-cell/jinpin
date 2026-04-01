@@ -3,8 +3,10 @@ import inspect
 import httpx
 
 from jingyantai.tools.contracts import PageData, ResearchToolset, SearchHit
+from jingyantai.tools.github_signals import GitHubSignals
 from jingyantai.tools.page_extract import HttpPageExtractor
 from jingyantai.tools.research_tools import ResearchTools
+from jingyantai.tools.web_search import TavilySearchClient
 
 
 class FakeSearchClient:
@@ -47,19 +49,24 @@ class FakePageExtractor:
 
 
 class FakeGitHubSignalsClient:
+    def __init__(self) -> None:
+        self.queries: list[str] = []
+
     def lookup(self, query: str) -> list[dict[str, str | int]]:
+        self.queries.append(query)
         return [
-            {"repo": "acme/agent-kit", "stars": 900, "releases": 11},
-            {"repo": "acme/workflow-kit", "stars": 500, "releases": 6},
+            {"repo": "acme/agent-kit", "stars": 900, "updated_at": "2026-03-31T00:00:00Z"},
+            {"repo": "codeium/codeium", "stars": 2000, "updated_at": "2026-03-30T00:00:00Z"},
         ]
 
 
 def test_search_competitor_candidates_returns_structured_candidates():
     search = FakeSearchClient()
+    github = FakeGitHubSignalsClient()
     tools = ResearchTools(
         search_client=search,
         page_extractor=FakePageExtractor(),
-        github_signals=FakeGitHubSignalsClient(),
+        github_signals=github,
     )
 
     candidates = tools.search_competitor_candidates(
@@ -69,7 +76,7 @@ def test_search_competitor_candidates_returns_structured_candidates():
         max_results=2,
     )
 
-    assert len(candidates) == 2
+    assert len(candidates) == 3
     first = candidates[0]
     assert set(first.keys()) >= {
         "candidate_id",
@@ -81,7 +88,39 @@ def test_search_competitor_candidates_returns_structured_candidates():
     }
     assert first["candidate_id"].startswith("cand-")
     assert first["canonical_url"] == "https://codeium.com"
+    assert first["source"] == "web"
+    assert candidates[-1]["source"] == "github"
+    assert candidates[-1]["canonical_url"] == "https://github.com/acme/agent-kit"
     assert "Claude Code competitor coding agent" in search.queries[0]
+    assert github.queries[0] == "Claude Code coding agent"
+
+
+def test_search_competitor_candidates_respects_source_mix():
+    search = FakeSearchClient()
+    github = FakeGitHubSignalsClient()
+    tools = ResearchTools(
+        search_client=search,
+        page_extractor=FakePageExtractor(),
+        github_signals=github,
+    )
+
+    web_only = tools.search_competitor_candidates(
+        target="Claude Code",
+        hypothesis="coding agent",
+        source_mix=["web"],
+        max_results=2,
+    )
+    github_only = tools.search_competitor_candidates(
+        target="Claude Code",
+        hypothesis="coding agent",
+        source_mix=["github"],
+        max_results=2,
+    )
+
+    assert {item["source"] for item in web_only} == {"web"}
+    assert {item["source"] for item in github_only} == {"github"}
+    assert len(search.queries) >= 1
+    assert len(github.queries) >= 1
 
 
 def test_collect_market_heat_signals_merges_search_page_and_github_signals():
@@ -95,10 +134,12 @@ def test_collect_market_heat_signals_merges_search_page_and_github_signals():
     signals = tools.collect_market_heat_signals(subject="coding agent", max_results=1)
 
     assert signals["summary"].startswith("coding agent")
+    assert len(signals["search"]) == 1
+    assert signals["search"][0]["url"] == "https://codeium.com"
     assert len(signals["web_signals"]) == 1
     assert signals["web_signals"][0]["source_url"] == "https://codeium.com/landing"
     assert signals["web_signals"][0]["page_excerpt"] == "Weekly active developers grew quickly in Q1."
-    assert signals["github"][0]["repo"] == "acme/agent-kit"
+    assert signals["github"][0]["updated_at"] == "2026-03-31T00:00:00Z"
     assert signals["signal_count"] == 3
     assert page.calls == 1
 
@@ -114,12 +155,23 @@ def test_collect_github_ecosystem_signals_returns_lookup_list():
 
     assert isinstance(github, list)
     assert github[0]["repo"] == "acme/agent-kit"
+    assert "updated_at" in github[0]
 
 
-def test_build_evidence_bundle_uses_pricing_or_access_key_and_single_fetch():
-    page = FakePageExtractor()
+class TrackingPageExtractor(FakePageExtractor):
+    def __init__(self) -> None:
+        super().__init__()
+        self.urls: list[str] = []
+
+    def extract(self, url: str) -> PageData:
+        self.urls.append(url)
+        return super().extract(url)
+
+
+def test_build_evidence_bundle_fetches_main_url_once_but_allows_heat_pages():
+    page = TrackingPageExtractor()
     tools = ResearchTools(
-        search_client=EmptySearchClient(),
+        search_client=FakeSearchClient(),
         page_extractor=page,
         github_signals=FakeGitHubSignalsClient(),
     )
@@ -131,7 +183,8 @@ def test_build_evidence_bundle_uses_pricing_or_access_key_and_single_fetch():
     assert bundle["positioning"]["source_url"] == "https://aider.chat/landing"
     assert bundle["workflow"]["source_url"] == "https://aider.chat/landing"
     assert bundle["pricing_or_access"]["source_url"] == "https://aider.chat/landing"
-    assert page.calls == 1
+    assert page.urls.count("https://aider.chat") == 1
+    assert "https://codeium.com" in page.urls
 
 
 def test_research_tools_matches_agent_facing_protocol_and_signature():
@@ -159,3 +212,57 @@ def test_http_page_extractor_uses_final_response_url():
     page = extractor.extract("https://example.com/start")
 
     assert page.url == "https://example.com/final"
+
+
+def test_tavily_search_client_maps_payload_to_search_hits():
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url == httpx.URL("https://api.tavily.com/search")
+        payload = request.read().decode("utf-8")
+        assert '"query":"claude code competitors"' in payload
+        return httpx.Response(
+            status_code=200,
+            json={
+                "results": [
+                    {"title": "Aider", "url": "https://aider.chat", "content": "Terminal AI pair programmer"},
+                    {"title": "Missing Url", "content": "ignored"},
+                ]
+            },
+            request=request,
+        )
+
+    client = TavilySearchClient(api_key="test-key", http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+    hits = client.search("claude code competitors", max_results=3)
+
+    assert len(hits) == 1
+    assert hits[0].title == "Aider"
+    assert hits[0].url == "https://aider.chat"
+    assert hits[0].snippet == "Terminal AI pair programmer"
+
+
+def test_github_signals_maps_payload_to_lookup_results():
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/search/repositories"
+        return httpx.Response(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "full_name": "Aider-AI/aider",
+                        "stargazers_count": 24000,
+                        "updated_at": "2026-03-29T10:00:00Z",
+                    }
+                ]
+            },
+            request=request,
+        )
+
+    signals = GitHubSignals(http_client=httpx.Client(transport=httpx.MockTransport(handler)))
+    result = signals.lookup("aider")
+
+    assert result == [
+        {
+            "repo": "Aider-AI/aider",
+            "stars": 24000,
+            "updated_at": "2026-03-29T10:00:00Z",
+        }
+    ]

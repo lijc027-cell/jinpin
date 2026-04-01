@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from urllib.parse import urlparse
 
 from jingyantai.tools.contracts import GitHubSignalsClient, PageData, PageExtractor, ResearchToolset, SearchClient
@@ -18,22 +19,63 @@ class ResearchTools(ResearchToolset):
         source_mix: list[str],
         max_results: int = 5,
     ) -> list[dict[str, str]]:
-        _ = source_mix
-        query = f"{target} competitor {hypothesis}"
-        hits = self.search_client.search(query=query, max_results=max_results)
         candidates: list[dict[str, str]] = []
-        for index, hit in enumerate(hits, start=1):
-            domain = urlparse(hit.url).netloc.removeprefix("www.")
-            candidates.append(
-                {
-                    "candidate_id": f"cand-{index}",
-                    "name": hit.title or domain or f"candidate-{index}",
-                    "canonical_url": hit.url,
-                    "why_candidate": hit.snippet,
-                    "source": "web_search",
-                    "domain": domain,
-                }
-            )
+        source_set = set(source_mix)
+        seen_urls: set[str] = set()
+        seen_identities: set[str] = set()
+
+        if "web" in source_set:
+            query = f"{target} competitor {hypothesis}"
+            hits = self.search_client.search(query=query, max_results=max_results)
+            for hit in hits:
+                normalized_url = hit.url.lower().rstrip("/")
+                if normalized_url in seen_urls:
+                    continue
+                seen_urls.add(normalized_url)
+                domain = urlparse(hit.url).netloc.removeprefix("www.")
+                domain_root = domain.split(".")[0].lower()
+                if domain_root:
+                    seen_identities.add(domain_root)
+                candidates.append(
+                    {
+                        "candidate_id": "",
+                        "name": hit.title or domain or "candidate",
+                        "canonical_url": hit.url,
+                        "why_candidate": hit.snippet,
+                        "source": "web",
+                        "domain": domain,
+                    }
+                )
+
+        if "github" in source_set:
+            query = f"{target} {hypothesis}"
+            github_hits = self.github_signals.lookup(query=query)
+            for hit in github_hits[:max_results]:
+                repo = str(hit.get("repo", ""))
+                if not repo:
+                    continue
+                url = f"https://github.com/{repo}"
+                normalized_url = url.lower().rstrip("/")
+                if normalized_url in seen_urls:
+                    continue
+                repo_tokens = {token for token in re.split(r"[/_.-]+", repo.lower()) if token}
+                if repo_tokens & seen_identities:
+                    continue
+                seen_urls.add(normalized_url)
+                seen_identities.update(repo_tokens)
+                candidates.append(
+                    {
+                        "candidate_id": "",
+                        "name": repo,
+                        "canonical_url": url,
+                        "why_candidate": f"GitHub stars: {hit.get('stars', 0)}",
+                        "source": "github",
+                        "domain": "github.com",
+                    }
+                )
+
+        for index, candidate in enumerate(candidates, start=1):
+            candidate["candidate_id"] = f"cand-{index}"
         return candidates
 
     def _evidence_from_page(self, subject: str, page: PageData, dimension: str) -> dict[str, str]:
@@ -63,6 +105,10 @@ class ResearchTools(ResearchToolset):
 
     def collect_market_heat_signals(self, subject: str, max_results: int = 3) -> dict[str, object]:
         search_hits = self.search_client.search(query=subject, max_results=max_results)
+        search = [
+            {"title": hit.title, "url": hit.url, "snippet": hit.snippet}
+            for hit in search_hits
+        ]
         web_signals: list[dict[str, str]] = []
         for hit in search_hits:
             page = self.page_extractor.extract(hit.url)
@@ -82,6 +128,7 @@ class ResearchTools(ResearchToolset):
         return {
             "subject": subject,
             "summary": summary,
+            "search": search,
             "web_signals": web_signals,
             "github": github,
             "signal_count": signal_count,
