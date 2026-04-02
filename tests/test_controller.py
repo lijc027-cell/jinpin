@@ -122,3 +122,76 @@ def test_controller_loops_until_stop_and_persists_state(tmp_path: Path):
     assert final_state.round_index == 1
     assert "Claude Code" in final_state.carry_forward_context
     assert len(final_state.traces) >= 2
+
+
+def test_controller_records_role_errors_and_continues_for_scout_and_analyst_failures(tmp_path: Path):
+    from jingyantai.domain.models import Candidate, StopDecision
+    from jingyantai.domain.phases import CandidateStatus
+
+    class PassingLeadResearcher:
+        def run(self, state):
+            return "Plan next pass"
+
+    class FailingScout:
+        provider = "deepseek"
+        model = "deepseek-chat"
+        role_name = "scout_positioning"
+
+        def run(self, state):
+            raise RuntimeError("scout failed")
+
+    class HealthyScout:
+        provider = "deepseek"
+        model = "deepseek-chat"
+        role_name = "scout_github"
+
+        def run(self, state):
+            return [
+                Candidate(
+                    candidate_id="cand-aider-1",
+                    name="Aider",
+                    canonical_url="https://aider.chat",
+                    status=CandidateStatus.DISCOVERED,
+                    relevance_score=0.8,
+                    why_candidate="terminal coding agent",
+                )
+            ]
+
+    class FailingAnalyst:
+        provider = "deepseek"
+        model = "deepseek-chat"
+        role_name = "analyst_workflow"
+
+        def run(self, state, candidate):
+            raise RuntimeError("analyst failed")
+
+    class StopNow:
+        def run(self, state):
+            return StopDecision(verdict=StopVerdict.STOP, reasons=["done"], gap_tickets=[])
+
+    store = FileRunStore(tmp_path / "runs")
+    controller = HarnessController(
+        store=store,
+        initializer=FakeInitializer(),
+        lead_researcher=PassingLeadResearcher(),
+        scouts=[FailingScout(), HealthyScout()],
+        analysts=[FailingAnalyst()],
+        compactor=ContextCompactor(),
+        evidence_judge=lambda state: None,
+        coverage_judge=lambda state: None,
+        challenger=lambda state: None,
+        stop_judge=StopNow(),
+    )
+
+    final_state = controller.run(target="Claude Code", budget=BudgetPolicy(
+        max_rounds=4,
+        max_active_candidates=8,
+        max_deepen_targets=3,
+        max_external_fetches=30,
+        max_run_duration_minutes=20,
+    ))
+
+    all_errors = [error for trace in final_state.traces for error in trace.role_errors]
+    assert any("scout_positioning|deepseek|deepseek-chat|RuntimeError|scout failed" in item for item in all_errors)
+    assert any("analyst_workflow|deepseek|deepseek-chat|RuntimeError|analyst failed" in item for item in all_errors)
+    assert any(candidate.name == "Aider" for candidate in final_state.candidates)

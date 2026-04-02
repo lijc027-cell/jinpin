@@ -78,20 +78,28 @@ class HarnessController:
             if state.round_index == 0 or any(ticket.owner_role == "scout" for ticket in state.gap_tickets):
                 state.current_phase = Phase.EXPAND
                 round_plan = _invoke(self.lead_researcher, state)
+                role_errors: list[str] = []
                 for scout in self.scouts:
-                    for candidate in _invoke(scout, state):
-                        _advance_candidate_to_confirmed(candidate)
-                        state.candidates.append(candidate)
-                self._trace(state, str(round_plan))
+                    try:
+                        for candidate in _invoke(scout, state):
+                            _advance_candidate_to_confirmed(candidate)
+                            state.candidates.append(candidate)
+                    except Exception as exc:
+                        role_errors.append(self._format_role_error(scout, exc))
+                self._trace(state, str(round_plan), role_errors=role_errors)
 
             state.current_phase = Phase.DEEPEN
+            role_errors: list[str] = []
             for candidate in state.top_candidates(limit=state.budget.max_deepen_targets):
                 for analyst in self.analysts:
-                    evidence, findings, uncertainties = _invoke(analyst, state, candidate)
-                    state.evidence.extend(evidence)
-                    state.findings.extend(findings)
-                    state.uncertainties.extend(uncertainties)
-            self._trace(state, "deepened top candidates")
+                    try:
+                        evidence, findings, uncertainties = _invoke(analyst, state, candidate)
+                        state.evidence.extend(evidence)
+                        state.findings.extend(findings)
+                        state.uncertainties.extend(uncertainties)
+                    except Exception as exc:
+                        role_errors.append(self._format_role_error(analyst, exc))
+            self._trace(state, "deepened top candidates", role_errors=role_errors)
 
             state.current_phase = Phase.CHALLENGE
             reviews = [
@@ -121,7 +129,13 @@ class HarnessController:
             self.store.append_trace(state.run_id, trace)
         return state
 
-    def _trace(self, state: RunState, planner_output: str) -> None:
+    def _format_role_error(self, role: object, error: Exception) -> str:
+        role_name = str(getattr(role, "role_name", type(role).__name__))
+        provider = str(getattr(role, "provider", "unknown"))
+        model = str(getattr(role, "model", "unknown"))
+        return f"{role_name}|{provider}|{model}|{type(error).__name__}|{error}"
+
+    def _trace(self, state: RunState, planner_output: str, *, role_errors: list[str] | None = None) -> None:
         trace = RunTrace(
             round_index=state.round_index,
             phase=state.current_phase,
@@ -131,5 +145,6 @@ class HarnessController:
             new_findings=[finding.finding_id for finding in state.findings],
             review_decisions=[decision.judge_type for decision in state.review_decisions],
             stop_or_continue=state.current_phase.value,
+            role_errors=list(role_errors or []),
         )
         state.traces.append(trace)

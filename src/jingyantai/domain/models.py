@@ -143,6 +143,7 @@ class RunTrace(BaseModel):
     new_findings: list[str]
     review_decisions: list[str]
     stop_or_continue: str
+    role_errors: list[str] = Field(default_factory=list)
 
 
 class FinalReport(BaseModel):
