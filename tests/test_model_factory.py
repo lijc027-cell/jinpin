@@ -22,7 +22,7 @@ def test_provider_config_fields_are_available():
         model="deepseek-chat",
         base_url="https://api.deepseek.com",
         api_key_env="DEEPSEEK_API_KEY",
-        timeout_seconds=30,
+        timeout_seconds=30.0,
         max_retries=2,
     )
 
@@ -30,22 +30,33 @@ def test_provider_config_fields_are_available():
     assert config.model == "deepseek-chat"
     assert config.base_url == "https://api.deepseek.com"
     assert config.api_key_env == "DEEPSEEK_API_KEY"
-    assert config.timeout_seconds == 30
+    assert config.timeout_seconds == 30.0
     assert config.max_retries == 2
 
 
-def test_model_invocation_fields_are_available():
+def test_provider_config_defaults_match_task_1_plan():
+    config = ProviderConfig(
+        provider="deepseek",
+        model="deepseek-chat",
+        base_url="https://api.deepseek.com",
+        api_key_env="DEEPSEEK_API_KEY",
+    )
+
+    assert config.timeout_seconds == 20.0
+    assert config.max_retries == 1
+
+
+def test_model_invocation_fields_are_available_with_default_temperature():
     invocation = ModelInvocation(
         system_prompt="you are helpful",
         payload={"question": "hello"},
         response_schema_name="summary",
-        temperature=0.2,
     )
 
     assert invocation.system_prompt == "you are helpful"
     assert invocation.payload == {"question": "hello"}
     assert invocation.response_schema_name == "summary"
-    assert invocation.temperature == 0.2
+    assert invocation.temperature == 0.0
 
 
 def test_model_runner_errors_follow_contract_hierarchy():
@@ -65,7 +76,7 @@ def test_build_model_runner_returns_deepseek_runner_for_deepseek_provider():
         model="deepseek-chat",
         base_url="https://api.deepseek.com",
         api_key_env="DEEPSEEK_API_KEY",
-        timeout_seconds=30,
+        timeout_seconds=30.0,
         max_retries=2,
     )
 
@@ -81,11 +92,11 @@ def test_build_model_runner_raises_for_unknown_provider():
         model="model-x",
         base_url="https://example.com",
         api_key_env="API_KEY",
-        timeout_seconds=30,
+        timeout_seconds=30.0,
         max_retries=1,
     )
 
-    with pytest.raises(ValueError, match="unknown-provider"):
+    with pytest.raises(ValueError, match=r"^Unsupported provider: unknown-provider$"):
         build_model_runner(config)
 
 
@@ -95,7 +106,7 @@ def test_deepseek_runner_run_is_not_implemented_in_task_1():
         model="deepseek-chat",
         base_url="https://api.deepseek.com",
         api_key_env="DEEPSEEK_API_KEY",
-        timeout_seconds=30,
+        timeout_seconds=30.0,
         max_retries=2,
     )
     runner = DeepSeekRunner(config=config)
