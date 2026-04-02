@@ -1,30 +1,49 @@
 from __future__ import annotations
 
+import pytest
+from pydantic import BaseModel, ValidationError
+
 from jingyantai.agents.deepagents_adapter import DeepagentsRoleAdapter
-from jingyantai.domain.models import ResearchBrief
+from jingyantai.llm.contracts import ModelInvocation, ProviderConfig
 
 
-def test_deepagents_adapter_maps_runner_payload_to_model():
-    def fake_runner(system_prompt: str, payload: dict) -> dict:
-        assert "Initializer" in system_prompt
-        assert payload["target"] == "Claude Code"
-        return {
-            "target": "Claude Code",
-            "product_type": "coding-agent",
-            "competitor_definition": "Direct competitors are terminal-native coding agents.",
-            "required_dimensions": ["positioning", "workflow"],
-            "stop_policy": "Stop after enough covered competitors.",
-            "budget": {
-                "max_rounds": 4,
-                "max_active_candidates": 8,
-                "max_deepen_targets": 3,
-                "max_external_fetches": 30,
-                "max_run_duration_minutes": 20,
-            },
-        }
+class OutputModel(BaseModel):
+    round_plan: str
 
-    adapter = DeepagentsRoleAdapter(role_prompt="You are the Initializer.", runner=fake_runner)
-    result = adapter.run({"target": "Claude Code"}, ResearchBrief)
 
-    assert result.target == "Claude Code"
-    assert result.product_type == "coding-agent"
+class StaticRunner:
+    def __init__(self) -> None:
+        self.config = ProviderConfig(
+            provider="deepseek",
+            model="deepseek-chat",
+            base_url="https://api.deepseek.com",
+            api_key_env="DEEPSEEK_API_KEY",
+            timeout_seconds=20.0,
+            max_retries=1,
+        )
+        self.invocations: list[ModelInvocation] = []
+
+    def run(self, invocation: ModelInvocation) -> dict[str, object]:
+        self.invocations.append(invocation)
+        return {"round_plan": "deepen workflow evidence"}
+
+
+def test_deepagents_adapter_uses_runner_and_validates_schema():
+    runner = StaticRunner()
+    adapter = DeepagentsRoleAdapter(role_prompt="You are the Lead Researcher.", runner=runner)
+
+    result = adapter.run({"target": "Claude Code"}, OutputModel)
+
+    assert result.round_plan == "deepen workflow evidence"
+    assert runner.invocations[0].response_schema_name == "OutputModel"
+    assert adapter.provider == "deepseek"
+    assert adapter.model == "deepseek-chat"
+
+
+def test_deepagents_adapter_raises_validation_error_on_bad_payload():
+    runner = StaticRunner()
+    runner.run = lambda invocation: {"wrong": "shape"}
+    adapter = DeepagentsRoleAdapter(role_prompt="You are the Lead Researcher.", runner=runner)
+
+    with pytest.raises(ValidationError):
+        adapter.run({"target": "Claude Code"}, OutputModel)
