@@ -2,15 +2,23 @@
 
 面向小团队的长程竞品研究 Harness。
 
-## Current Scope
-
-- `Claude Code` 竞品研究 MVP
-- 长程运行直到 `Stop Judge` 放行
-- 生成侧与评估侧严格分离
-
-## Planned Commands
+## Setup
 
 ```bash
 pip install -e .[dev]
-jingyantai --help
 ```
+
+可选：在环境变量或本地 `.env` 中设置 `TAVILY_API_KEY` 和 `GITHUB_TOKEN`。
+
+## Run
+
+```bash
+jingyantai run "Claude Code"
+```
+
+## MVP Properties
+
+- Long-running harness with explicit phases
+- Generator/evaluator separation
+- File-backed run artifacts
+- Cited final report
