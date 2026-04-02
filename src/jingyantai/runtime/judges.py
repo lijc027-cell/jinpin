@@ -4,6 +4,23 @@ from jingyantai.domain.models import GapTicket, ReviewDecision, RunState, StopDe
 from jingyantai.domain.phases import CandidateStatus, GapPriority, ReviewVerdict, StopVerdict
 
 
+MIN_EVIDENCE_CONFIDENCE = 0.6
+MIN_EVIDENCE_FRESHNESS = 0.2
+
+
+def _is_acceptable_support_evidence(*, candidate_id: str, evidence: object) -> bool:
+    # Keep this tiny and explicit; tests lock the semantics.
+    if getattr(evidence, "subject_id", None) != candidate_id:
+        return False
+    if getattr(evidence, "supports_or_conflicts", "supports") != "supports":
+        return False
+    if getattr(evidence, "confidence", 0.0) < MIN_EVIDENCE_CONFIDENCE:
+        return False
+    if getattr(evidence, "freshness_score", 0.0) < MIN_EVIDENCE_FRESHNESS:
+        return False
+    return True
+
+
 def _covered_dimensions_for_candidate(
     state: RunState, *, candidate_id: str, required_dimensions: list[str]
 ) -> set[str]:
@@ -18,7 +35,8 @@ def _covered_dimensions_for_candidate(
         if not finding.evidence_ids:
             continue
         if all(
-            evidence_id in evidence_by_id and evidence_by_id[evidence_id].subject_id == candidate_id
+            evidence_id in evidence_by_id
+            and _is_acceptable_support_evidence(candidate_id=candidate_id, evidence=evidence_by_id[evidence_id])
             for evidence_id in finding.evidence_ids
         ):
             covered.add(finding.dimension)
@@ -27,16 +45,32 @@ def _covered_dimensions_for_candidate(
 
 class EvidenceJudge:
     def run(self, state: RunState) -> ReviewDecision:
-        weak = [evidence for evidence in state.evidence if evidence.confidence < 0.6]
-        if weak:
-            weak_labels = [f"{evidence.evidence_id}({evidence.confidence:.2f})" for evidence in weak]
+        conflicts = [evidence for evidence in state.evidence if evidence.supports_or_conflicts != "supports"]
+        stale = [evidence for evidence in state.evidence if evidence.freshness_score < MIN_EVIDENCE_FRESHNESS]
+        weak = [evidence for evidence in state.evidence if evidence.confidence < MIN_EVIDENCE_CONFIDENCE]
+
+        if conflicts or stale or weak:
+            pieces: list[str] = []
+            if conflicts:
+                pieces.append(
+                    "conflict evidence: " + ", ".join(evidence.evidence_id for evidence in conflicts)
+                )
+            if stale:
+                pieces.append(
+                    "stale evidence: " + ", ".join(evidence.evidence_id for evidence in stale)
+                )
+            if weak:
+                weak_labels = [f"{evidence.evidence_id}({evidence.confidence:.2f})" for evidence in weak]
+                pieces.append("low-confidence evidence: " + ", ".join(weak_labels))
             return ReviewDecision(
                 judge_type="evidence",
                 target_scope="run",
                 verdict=ReviewVerdict.FAIL,
-                reasons=[f"Weak evidence detected: {', '.join(weak_labels)}."],
+                reasons=["Evidence quality gate failed: " + "; ".join(pieces) + "."],
                 required_actions=[
-                    f"Replace or corroborate low-confidence evidence: {', '.join(evidence.evidence_id for evidence in weak)}."
+                    "Replace, corroborate, or remove non-supporting / stale / low-confidence evidence IDs: "
+                    + ", ".join({evidence.evidence_id for evidence in conflicts + stale + weak})
+                    + "."
                 ],
             )
 
@@ -44,7 +78,7 @@ class EvidenceJudge:
             judge_type="evidence",
             target_scope="run",
             verdict=ReviewVerdict.PASS,
-            reasons=["No low-confidence evidence detected."],
+            reasons=["Evidence quality gate passed."],
             required_actions=[],
         )
 
@@ -161,6 +195,53 @@ class StopJudge:
             )
 
         gap_tickets: list[GapTicket] = []
+
+        unresolved_review = [
+            decision
+            for decision in state.review_decisions
+            if decision.verdict in {ReviewVerdict.FAIL, ReviewVerdict.WARN}
+        ]
+        if unresolved_review:
+            gap_tickets.append(
+                GapTicket(
+                    gap_type="review_decisions",
+                    target_scope="run",
+                    blocking_reason="Unresolved review decisions exist.",
+                    owner_role="lead_researcher",
+                    acceptance_rule="Resolve all FAIL/WARN review decisions.",
+                    deadline_round=state.round_index + 1,
+                    priority=GapPriority.HIGH,
+                    retry_count=0,
+                )
+            )
+
+        if state.open_questions:
+            gap_tickets.append(
+                GapTicket(
+                    gap_type="open_questions",
+                    target_scope="run",
+                    blocking_reason="Open questions remain.",
+                    owner_role="analyst",
+                    acceptance_rule="Answer all open questions with direct evidence.",
+                    deadline_round=state.round_index + 1,
+                    priority=GapPriority.MEDIUM,
+                    retry_count=0,
+                )
+            )
+
+        if state.uncertainties:
+            gap_tickets.append(
+                GapTicket(
+                    gap_type="uncertainties",
+                    target_scope="run",
+                    blocking_reason="Uncertainties remain.",
+                    owner_role="analyst",
+                    acceptance_rule="Resolve or explicitly bound key uncertainties with direct evidence.",
+                    deadline_round=state.round_index + 1,
+                    priority=GapPriority.MEDIUM,
+                    retry_count=0,
+                )
+            )
 
         if len(confirmed) < 3:
             gap_tickets.append(

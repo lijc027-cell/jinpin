@@ -9,6 +9,7 @@ from jingyantai.domain.models import (
     ResearchBrief,
     ReviewDecision,
     RunState,
+    UncertaintyItem,
 )
 from jingyantai.domain.phases import CandidateStatus, GapPriority, Phase, ReviewVerdict, StopVerdict
 
@@ -148,6 +149,68 @@ def test_evidence_judge_fails_on_low_confidence_evidence():
 
     assert decision.judge_type == "evidence"
     assert decision.verdict == ReviewVerdict.FAIL
+
+
+def test_evidence_judge_is_not_pass_on_stale_evidence():
+    from jingyantai.runtime.judges import EvidenceJudge
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.DEEPEN,
+        budget=_minimal_budget(),
+        round_index=1,
+    )
+    state.evidence.append(
+        Evidence(
+            evidence_id="e1",
+            subject_id="c1",
+            claim="Supports a key workflow claim",
+            source_url="https://example.com",
+            source_type="web",
+            snippet="snippet",
+            captured_at="2026-04-02",
+            freshness_score=0.05,
+            confidence=0.9,
+            supports_or_conflicts="supports",
+        )
+    )
+
+    decision = EvidenceJudge().run(state)
+
+    assert decision.judge_type == "evidence"
+    assert decision.verdict != ReviewVerdict.PASS
+
+
+def test_evidence_judge_is_not_pass_on_conflict_evidence():
+    from jingyantai.runtime.judges import EvidenceJudge
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.DEEPEN,
+        budget=_minimal_budget(),
+        round_index=1,
+    )
+    state.evidence.append(
+        Evidence(
+            evidence_id="e1",
+            subject_id="c1",
+            claim="Conflicts with a key claim",
+            source_url="https://example.com",
+            source_type="web",
+            snippet="snippet",
+            captured_at="2026-04-02",
+            freshness_score=0.9,
+            confidence=0.9,
+            supports_or_conflicts="conflicts",
+        )
+    )
+
+    decision = EvidenceJudge().run(state)
+
+    assert decision.judge_type == "evidence"
+    assert decision.verdict != ReviewVerdict.PASS
 
 
 def test_stop_judge_adds_scout_gap_ticket_when_confirmed_below_threshold():
@@ -353,6 +416,266 @@ def test_coverage_and_stop_judges_do_not_count_other_candidate_evidence_as_cover
         and ticket.blocking_reason == "Missing dimensions: workflow"
         for ticket in stop.gap_tickets
     )
+
+
+def test_conflict_evidence_does_not_count_as_coverage_for_coverage_and_stop_judges():
+    from jingyantai.runtime.judges import CoverageJudge, StopJudge
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.STOP,
+        budget=_minimal_budget(),
+        round_index=1,
+    )
+    state.candidates.extend(
+        [
+            Candidate(
+                candidate_id="a",
+                name="Alpha",
+                canonical_url="https://a.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.9,
+                why_candidate="direct",
+            ),
+            Candidate(
+                candidate_id="b",
+                name="Beta",
+                canonical_url="https://b.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.8,
+                why_candidate="direct",
+            ),
+            Candidate(
+                candidate_id="c",
+                name="Gamma",
+                canonical_url="https://c.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.7,
+                why_candidate="direct",
+            ),
+        ]
+    )
+    state.evidence.extend(
+        [
+            Evidence(
+                evidence_id="e-a",
+                subject_id="a",
+                claim="Workflow claim for Alpha (conflict)",
+                source_url="https://example.com/a",
+                source_type="web",
+                snippet="snippet",
+                captured_at="2026-04-02",
+                freshness_score=0.9,
+                confidence=0.9,
+                supports_or_conflicts="conflicts",
+            ),
+            Evidence(
+                evidence_id="e-b",
+                subject_id="b",
+                claim="Workflow claim for Beta",
+                source_url="https://example.com/b",
+                source_type="web",
+                snippet="snippet",
+                captured_at="2026-04-02",
+                freshness_score=0.9,
+                confidence=0.9,
+                supports_or_conflicts="supports",
+            ),
+            Evidence(
+                evidence_id="e-c",
+                subject_id="c",
+                claim="Workflow claim for Gamma",
+                source_url="https://example.com/c",
+                source_type="web",
+                snippet="snippet",
+                captured_at="2026-04-02",
+                freshness_score=0.9,
+                confidence=0.9,
+                supports_or_conflicts="supports",
+            ),
+        ]
+    )
+    state.findings.extend(
+        [
+            Finding(
+                finding_id="f-a",
+                subject_id="a",
+                dimension="workflow",
+                summary="Workflow summary for Alpha.",
+                evidence_ids=["e-a"],
+                confidence=0.8,
+            ),
+            Finding(
+                finding_id="f-b",
+                subject_id="b",
+                dimension="workflow",
+                summary="Workflow summary for Beta.",
+                evidence_ids=["e-b"],
+                confidence=0.8,
+            ),
+            Finding(
+                finding_id="f-c",
+                subject_id="c",
+                dimension="workflow",
+                summary="Workflow summary for Gamma.",
+                evidence_ids=["e-c"],
+                confidence=0.8,
+            ),
+        ]
+    )
+
+    coverage = CoverageJudge(required_dimensions=["workflow"]).run(state)
+    assert coverage.verdict == ReviewVerdict.FAIL
+    assert any(item == "Alpha: workflow" for item in coverage.required_actions)
+
+    stop = StopJudge(required_dimensions=["workflow"]).run(state)
+    assert stop.verdict == StopVerdict.CONTINUE
+    assert any(ticket.gap_type == "coverage" and ticket.target_scope == "Alpha" for ticket in stop.gap_tickets)
+
+
+def test_stop_judge_continues_when_review_signals_or_open_questions_or_uncertainties_exist():
+    from jingyantai.runtime.judges import StopJudge
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.STOP,
+        budget=_minimal_budget(),
+        round_index=2,
+    )
+    state.candidates.extend(
+        [
+            Candidate(
+                candidate_id="a",
+                name="Alpha",
+                canonical_url="https://a.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.9,
+                why_candidate="direct",
+            ),
+            Candidate(
+                candidate_id="b",
+                name="Beta",
+                canonical_url="https://b.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.8,
+                why_candidate="direct",
+            ),
+            Candidate(
+                candidate_id="c",
+                name="Gamma",
+                canonical_url="https://c.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.7,
+                why_candidate="direct",
+            ),
+        ]
+    )
+    state.evidence.extend(
+        [
+            Evidence(
+                evidence_id="e-a",
+                subject_id="a",
+                claim="workflow claim a",
+                source_url="https://example.com/a",
+                source_type="web",
+                snippet="snippet",
+                captured_at="2026-04-02",
+                freshness_score=0.9,
+                confidence=0.9,
+                supports_or_conflicts="supports",
+            ),
+            Evidence(
+                evidence_id="e-b",
+                subject_id="b",
+                claim="workflow claim b",
+                source_url="https://example.com/b",
+                source_type="web",
+                snippet="snippet",
+                captured_at="2026-04-02",
+                freshness_score=0.9,
+                confidence=0.9,
+                supports_or_conflicts="supports",
+            ),
+            Evidence(
+                evidence_id="e-c",
+                subject_id="c",
+                claim="workflow claim c",
+                source_url="https://example.com/c",
+                source_type="web",
+                snippet="snippet",
+                captured_at="2026-04-02",
+                freshness_score=0.9,
+                confidence=0.9,
+                supports_or_conflicts="supports",
+            ),
+        ]
+    )
+    state.findings.extend(
+        [
+            Finding(
+                finding_id="f-a",
+                subject_id="a",
+                dimension="workflow",
+                summary="Workflow a",
+                evidence_ids=["e-a"],
+                confidence=0.8,
+            ),
+            Finding(
+                finding_id="f-b",
+                subject_id="b",
+                dimension="workflow",
+                summary="Workflow b",
+                evidence_ids=["e-b"],
+                confidence=0.8,
+            ),
+            Finding(
+                finding_id="f-c",
+                subject_id="c",
+                dimension="workflow",
+                summary="Workflow c",
+                evidence_ids=["e-c"],
+                confidence=0.8,
+            ),
+        ]
+    )
+    state.review_decisions.append(
+        ReviewDecision(
+            judge_type="evidence",
+            target_scope="run",
+            verdict=ReviewVerdict.WARN,
+            reasons=["needs more corroboration"],
+            required_actions=["add independent sources"],
+        )
+    )
+    state.open_questions.append(
+        OpenQuestion(
+            question="Open question still unresolved",
+            target_subject="a",
+            priority=GapPriority.MEDIUM,
+            owner_role="analyst",
+            created_by="coverage",
+        )
+    )
+    state.uncertainties.append(
+        UncertaintyItem(
+            statement="Uncertain pricing model",
+            impact="could change competitor ranking",
+            resolvability="medium",
+            required_evidence="pricing page snapshot",
+            owner_role="analyst",
+        )
+    )
+
+    decision = StopJudge(required_dimensions=["workflow"]).run(state)
+
+    assert decision.verdict == StopVerdict.CONTINUE
+    assert "Quality bar not met" in decision.reasons
+    assert decision.gap_tickets
+    assert any(ticket.gap_type == "review_decisions" for ticket in decision.gap_tickets)
+    assert any(ticket.gap_type == "open_questions" for ticket in decision.gap_tickets)
+    assert any(ticket.gap_type == "uncertainties" for ticket in decision.gap_tickets)
 
 
 def test_challenger_warns_when_why_candidate_mentions_platform_and_shape_is_stable():
