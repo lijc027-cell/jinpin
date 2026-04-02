@@ -81,6 +81,11 @@ def test_deepseek_runner_posts_to_chat_completions_and_parses_json(monkeypatch: 
     assert client.calls[0]["json"]["temperature"] == 0.2
     assert client.calls[0]["json"]["response_format"] == {"type": "json_object"}
     assert isinstance(client.calls[0]["json"]["messages"], list)
+    user_content = client.calls[0]["json"]["messages"][1]["content"]
+    user_content_json = json.loads(user_content)
+    assert user_content_json["schema"] == "LeadResearcherOutput"
+    assert user_content_json["payload"] == {"target": "Claude Code"}
+    assert user_content_json["instructions"] == "Return JSON only."
 
 
 def test_deepseek_runner_raises_provider_request_error_after_retry_exhaustion(monkeypatch: pytest.MonkeyPatch):

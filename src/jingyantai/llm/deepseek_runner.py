@@ -26,7 +26,17 @@ class DeepSeekRunner:
             "model": self.config.model,
             "messages": [
                 {"role": "system", "content": invocation.system_prompt},
-                {"role": "user", "content": json.dumps(invocation.payload, ensure_ascii=False)},
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "schema": invocation.response_schema_name,
+                            "payload": invocation.payload,
+                            "instructions": "Return JSON only.",
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
             ],
             "temperature": invocation.temperature,
             "response_format": {"type": "json_object"},
