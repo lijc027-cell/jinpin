@@ -98,24 +98,3 @@ def test_build_model_runner_raises_for_unknown_provider():
 
     with pytest.raises(ValueError, match=r"^Unsupported provider: unknown-provider$"):
         build_model_runner(config)
-
-
-def test_deepseek_runner_run_is_not_implemented_in_task_1():
-    config = ProviderConfig(
-        provider="deepseek",
-        model="deepseek-chat",
-        base_url="https://api.deepseek.com",
-        api_key_env="DEEPSEEK_API_KEY",
-        timeout_seconds=30.0,
-        max_retries=2,
-    )
-    runner = DeepSeekRunner(config=config)
-    invocation = ModelInvocation(
-        system_prompt="you are helpful",
-        payload={"question": "hello"},
-        response_schema_name="summary",
-        temperature=0.0,
-    )
-
-    with pytest.raises(NotImplementedError):
-        runner.run(invocation)
