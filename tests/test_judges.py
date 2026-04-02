@@ -3,6 +3,7 @@ from __future__ import annotations
 from jingyantai.domain.models import (
     BudgetPolicy,
     Candidate,
+    Evidence,
     Finding,
     OpenQuestion,
     ResearchBrief,
@@ -118,7 +119,135 @@ def test_stop_judge_does_not_count_finding_as_coverage_without_evidence():
     assert decision.verdict == StopVerdict.CONTINUE
 
 
-def test_challenger_returns_review_decision():
+def test_evidence_judge_fails_on_low_confidence_evidence():
+    from jingyantai.runtime.judges import EvidenceJudge
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.DEEPEN,
+        budget=_minimal_budget(),
+        round_index=1,
+    )
+    state.evidence.append(
+        Evidence(
+            evidence_id="e1",
+            subject_id="c1",
+            claim="Supports a key workflow claim",
+            source_url="https://example.com",
+            source_type="web",
+            snippet="snippet",
+            captured_at="2026-04-02",
+            freshness_score=0.5,
+            confidence=0.59,
+            supports_or_conflicts="supports",
+        )
+    )
+
+    decision = EvidenceJudge().run(state)
+
+    assert decision.judge_type == "evidence"
+    assert decision.verdict == ReviewVerdict.FAIL
+
+
+def test_stop_judge_adds_scout_gap_ticket_when_confirmed_below_threshold():
+    from jingyantai.runtime.judges import StopJudge
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.STOP,
+        budget=_minimal_budget(),
+        round_index=1,
+    )
+    state.candidates.extend(
+        [
+            Candidate(
+                candidate_id="c1",
+                name="C1",
+                canonical_url="https://c1.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.9,
+                why_candidate="direct",
+            ),
+            Candidate(
+                candidate_id="c2",
+                name="C2",
+                canonical_url="https://c2.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.8,
+                why_candidate="direct",
+            ),
+        ]
+    )
+
+    decision = StopJudge(required_dimensions=["workflow"]).run(state)
+
+    assert decision.verdict == StopVerdict.CONTINUE
+    assert "Quality bar not met" in decision.reasons
+    assert any(
+        ticket.gap_type == "candidate_count"
+        and ticket.target_scope == "run"
+        and ticket.owner_role == "scout"
+        and ticket.acceptance_rule == "Confirm at least 3 direct competitors."
+        and ticket.blocking_reason == "Need at least 3 confirmed competitors."
+        for ticket in decision.gap_tickets
+    )
+
+
+def test_coverage_judge_shape_and_required_actions_are_missing_list():
+    from jingyantai.runtime.judges import CoverageJudge
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.DECIDE,
+        budget=_minimal_budget(),
+        round_index=1,
+    )
+    state.candidates.append(
+        Candidate(
+            candidate_id="c1",
+            name="Competitor One",
+            canonical_url="https://c1.dev",
+            status=CandidateStatus.CONFIRMED,
+            relevance_score=0.9,
+            why_candidate="direct",
+        )
+    )
+    state.evidence.append(
+        Evidence(
+            evidence_id="e1",
+            subject_id="c1",
+            claim="workflow claim",
+            source_url="https://example.com",
+            source_type="web",
+            snippet="snippet",
+            captured_at="2026-04-02",
+            freshness_score=0.5,
+            confidence=0.9,
+        )
+    )
+    state.findings.append(
+        Finding(
+            finding_id="f1",
+            subject_id="c1",
+            dimension="workflow",
+            summary="Workflow summary.",
+            evidence_ids=["e1"],
+            confidence=0.8,
+        )
+    )
+
+    decision = CoverageJudge(required_dimensions=["workflow", "pricing"]).run(state)
+
+    assert decision.judge_type == "coverage"
+    assert decision.target_scope == "confirmed_candidates"
+    assert decision.verdict == ReviewVerdict.FAIL
+    assert any("pricing" in item for item in decision.required_actions)
+
+
+def test_challenger_warns_when_why_candidate_mentions_platform_and_shape_is_stable():
     from jingyantai.runtime.judges import Challenger
 
     state = RunState(
@@ -128,12 +257,23 @@ def test_challenger_returns_review_decision():
         budget=_minimal_budget(),
         round_index=1,
     )
+    state.candidates.append(
+        Candidate(
+            candidate_id="c1",
+            name="Platform-ish",
+            canonical_url="https://p.dev",
+            status=CandidateStatus.CONFIRMED,
+            relevance_score=0.9,
+            why_candidate="AI platform that also offers a terminal agent",
+        )
+    )
 
     decision = Challenger().run(state)
 
     assert isinstance(decision, ReviewDecision)
     assert decision.judge_type == "challenger"
-    assert decision.verdict in {ReviewVerdict.WARN, ReviewVerdict.PASS, ReviewVerdict.FAIL}
+    assert decision.target_scope == "candidate_fit"
+    assert decision.verdict == ReviewVerdict.WARN
 
 
 def test_context_compactor_compact_includes_target_and_top_candidate_snapshot():

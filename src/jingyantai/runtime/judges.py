@@ -24,20 +24,24 @@ def _covered_dimensions_for_candidate(
 
 class EvidenceJudge:
     def run(self, state: RunState) -> ReviewDecision:
-        # Minimal contract implementation; richer logic is intentionally deferred.
-        if not state.evidence:
+        weak = [evidence for evidence in state.evidence if evidence.confidence < 0.6]
+        if weak:
+            weak_labels = [f"{evidence.evidence_id}({evidence.confidence:.2f})" for evidence in weak]
             return ReviewDecision(
-                judge_type="evidence_judge",
+                judge_type="evidence",
                 target_scope="run",
-                verdict=ReviewVerdict.WARN,
-                reasons=["No evidence collected yet."],
-                required_actions=["Collect primary-source evidence for key claims."],
+                verdict=ReviewVerdict.FAIL,
+                reasons=[f"Weak evidence detected: {', '.join(weak_labels)}."],
+                required_actions=[
+                    f"Replace or corroborate low-confidence evidence: {', '.join(evidence.evidence_id for evidence in weak)}."
+                ],
             )
+
         return ReviewDecision(
-            judge_type="evidence_judge",
+            judge_type="evidence",
             target_scope="run",
             verdict=ReviewVerdict.PASS,
-            reasons=["Evidence present."],
+            reasons=["No low-confidence evidence detected."],
             required_actions=[],
         )
 
@@ -49,8 +53,8 @@ class CoverageJudge:
     def run(self, state: RunState) -> ReviewDecision:
         if not self.required_dimensions:
             return ReviewDecision(
-                judge_type="coverage_judge",
-                target_scope="run",
+                judge_type="coverage",
+                target_scope="confirmed_candidates",
                 verdict=ReviewVerdict.WARN,
                 reasons=["No required_dimensions configured for CoverageJudge."],
             )
@@ -58,8 +62,8 @@ class CoverageJudge:
         confirmed = [candidate for candidate in state.candidates if candidate.status == CandidateStatus.CONFIRMED]
         if not confirmed:
             return ReviewDecision(
-                judge_type="coverage_judge",
-                target_scope="run",
+                judge_type="coverage",
+                target_scope="confirmed_candidates",
                 verdict=ReviewVerdict.WARN,
                 reasons=["No confirmed candidates to evaluate coverage for."],
             )
@@ -74,21 +78,25 @@ class CoverageJudge:
                 missing_by_candidate[candidate.candidate_id] = missing
 
         if missing_by_candidate:
-            reasons = [
-                f"Candidate {candidate_id} missing: {', '.join(missing)}"
-                for candidate_id, missing in sorted(missing_by_candidate.items())
-            ]
+            reasons: list[str] = []
+            required_actions: list[str] = []
+            for candidate in confirmed:
+                missing = missing_by_candidate.get(candidate.candidate_id)
+                if not missing:
+                    continue
+                reasons.append(f"{candidate.name} missing: {', '.join(missing)}")
+                required_actions.extend([f"{candidate.name}: {dimension}" for dimension in missing])
             return ReviewDecision(
-                judge_type="coverage_judge",
-                target_scope="run",
+                judge_type="coverage",
+                target_scope="confirmed_candidates",
                 verdict=ReviewVerdict.FAIL,
                 reasons=reasons,
-                required_actions=["Fill missing required dimensions for confirmed candidates."],
+                required_actions=required_actions,
             )
 
         return ReviewDecision(
-            judge_type="coverage_judge",
-            target_scope="run",
+            judge_type="coverage",
+            target_scope="confirmed_candidates",
             verdict=ReviewVerdict.PASS,
             reasons=["All required dimensions covered for confirmed candidates."],
             required_actions=[],
@@ -97,24 +105,42 @@ class CoverageJudge:
 
 class Challenger:
     def run(self, state: RunState) -> ReviewDecision:
-        confirmed = [candidate for candidate in state.candidates if candidate.status == CandidateStatus.CONFIRMED]
-        if not confirmed:
+        scoped = [
+            candidate
+            for candidate in state.candidates
+            if candidate.status in {CandidateStatus.PRIORITIZED, CandidateStatus.CONFIRMED}
+        ]
+        if not scoped:
             return ReviewDecision(
                 judge_type="challenger",
-                target_scope="run",
+                target_scope="candidate_fit",
                 verdict=ReviewVerdict.WARN,
                 reasons=[
-                    "No confirmed candidates yet.",
-                    "Consider alternative discovery angles and disconfirming evidence sources.",
+                    "No prioritized/confirmed candidates to challenge yet.",
+                    "Consider alternative discovery angles.",
                 ],
-                required_actions=["Expand candidate discovery and collect independent primary sources."],
+                required_actions=["Expand candidate discovery and validate direct-competitor fit."],
             )
+
+        platform_named = [c for c in scoped if "platform" in c.why_candidate.lower()]
+        if platform_named:
+            return ReviewDecision(
+                judge_type="challenger",
+                target_scope="candidate_fit",
+                verdict=ReviewVerdict.WARN,
+                reasons=[
+                    "Some candidates are described as a platform; confirm they are direct competitors.",
+                    "Platform-language can indicate a broader product scope than a terminal-native coding agent.",
+                ],
+                required_actions=[f"Verify direct competitor fit for: {', '.join(c.name for c in platform_named)}."],
+            )
+
         return ReviewDecision(
             judge_type="challenger",
-            target_scope="run",
+            target_scope="candidate_fit",
             verdict=ReviewVerdict.PASS,
-            reasons=["Challenge checks passed: confirmed candidates exist."],
-            required_actions=["Seek at least one independent primary source per dimension for each confirmed candidate."],
+            reasons=["No platform-language found in why_candidate for prioritized/confirmed candidates."],
+            required_actions=[],
         )
 
 
@@ -127,11 +153,26 @@ class StopJudge:
         if not self.required_dimensions:
             return StopDecision(
                 verdict=StopVerdict.CONTINUE,
-                reasons=["No required_dimensions configured for StopJudge; continue."],
+                reasons=["Quality bar not met"],
                 gap_tickets=[],
             )
 
         gap_tickets: list[GapTicket] = []
+
+        if len(confirmed) < 3:
+            gap_tickets.append(
+                GapTicket(
+                    gap_type="candidate_count",
+                    target_scope="run",
+                    blocking_reason="Need at least 3 confirmed competitors.",
+                    owner_role="scout",
+                    acceptance_rule="Confirm at least 3 direct competitors.",
+                    deadline_round=state.round_index + 1,
+                    priority=GapPriority.HIGH,
+                    retry_count=0,
+                )
+            )
+
         for candidate in confirmed:
             covered = _covered_dimensions_for_candidate(
                 state, candidate_id=candidate.candidate_id, required_dimensions=self.required_dimensions
@@ -141,14 +182,14 @@ class StopJudge:
                 continue
             gap_tickets.append(
                 GapTicket(
-                    gap_type="missing_required_dimensions",
-                    target_scope=candidate.candidate_id,
+                    gap_type="coverage",
+                    target_scope=candidate.name,
                     blocking_reason=(
-                        "Missing evidence-backed findings for required dimensions: "
-                        f"{', '.join(missing)}."
+                        "Missing dimensions: "
+                        f"{', '.join(missing)}"
                     ),
                     owner_role="analyst",
-                    acceptance_rule="Add findings backed by evidence for each missing required dimension.",
+                    acceptance_rule="Cover all required dimensions with direct evidence.",
                     deadline_round=state.round_index + 1,
                     priority=GapPriority.HIGH,
                     retry_count=0,
@@ -158,21 +199,21 @@ class StopJudge:
         if gap_tickets:
             return StopDecision(
                 verdict=StopVerdict.CONTINUE,
-                reasons=["Coverage gaps remain for confirmed candidates."],
+                reasons=["Quality bar not met"],
                 gap_tickets=gap_tickets,
             )
 
         if not confirmed:
             return StopDecision(
                 verdict=StopVerdict.CONTINUE,
-                reasons=["No confirmed candidates yet."],
+                reasons=["Quality bar not met"],
                 gap_tickets=[],
             )
 
         if self.required_dimensions:
             return StopDecision(
                 verdict=StopVerdict.STOP,
-                reasons=["All required dimensions covered for confirmed candidates."],
+                reasons=["Quality bar met"],
                 gap_tickets=[],
             )
 
