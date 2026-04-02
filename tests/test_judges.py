@@ -247,6 +247,114 @@ def test_coverage_judge_shape_and_required_actions_are_missing_list():
     assert any("pricing" in item for item in decision.required_actions)
 
 
+def test_coverage_and_stop_judges_do_not_count_other_candidate_evidence_as_coverage():
+    from jingyantai.runtime.judges import CoverageJudge, StopJudge
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.STOP,
+        budget=_minimal_budget(),
+        round_index=1,
+    )
+    state.candidates.extend(
+        [
+            Candidate(
+                candidate_id="a",
+                name="Alpha",
+                canonical_url="https://a.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.9,
+                why_candidate="direct",
+            ),
+            Candidate(
+                candidate_id="b",
+                name="Beta",
+                canonical_url="https://b.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.8,
+                why_candidate="direct",
+            ),
+            Candidate(
+                candidate_id="c",
+                name="Gamma",
+                canonical_url="https://c.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.7,
+                why_candidate="direct",
+            ),
+        ]
+    )
+    state.evidence.extend(
+        [
+            Evidence(
+                evidence_id="e-b",
+                subject_id="b",
+                claim="workflow claim for Beta",
+                source_url="https://example.com/b",
+                source_type="web",
+                snippet="snippet",
+                captured_at="2026-04-02",
+                freshness_score=0.5,
+                confidence=0.9,
+            ),
+            Evidence(
+                evidence_id="e-c",
+                subject_id="c",
+                claim="workflow claim for Gamma",
+                source_url="https://example.com/c",
+                source_type="web",
+                snippet="snippet",
+                captured_at="2026-04-02",
+                freshness_score=0.5,
+                confidence=0.9,
+            ),
+        ]
+    )
+    state.findings.extend(
+        [
+            # BUG case: Alpha "workflow" finding references Beta's evidence id.
+            Finding(
+                finding_id="f-a",
+                subject_id="a",
+                dimension="workflow",
+                summary="Workflow summary for Alpha.",
+                evidence_ids=["e-b"],
+                confidence=0.8,
+            ),
+            Finding(
+                finding_id="f-b",
+                subject_id="b",
+                dimension="workflow",
+                summary="Workflow summary for Beta.",
+                evidence_ids=["e-b"],
+                confidence=0.8,
+            ),
+            Finding(
+                finding_id="f-c",
+                subject_id="c",
+                dimension="workflow",
+                summary="Workflow summary for Gamma.",
+                evidence_ids=["e-c"],
+                confidence=0.8,
+            ),
+        ]
+    )
+
+    coverage = CoverageJudge(required_dimensions=["workflow"]).run(state)
+    assert coverage.verdict == ReviewVerdict.FAIL
+    assert any(item == "Alpha: workflow" for item in coverage.required_actions)
+
+    stop = StopJudge(required_dimensions=["workflow"]).run(state)
+    assert stop.verdict == StopVerdict.CONTINUE
+    assert any(
+        ticket.gap_type == "coverage"
+        and ticket.target_scope == "Alpha"
+        and ticket.blocking_reason == "Missing dimensions: workflow"
+        for ticket in stop.gap_tickets
+    )
+
+
 def test_challenger_warns_when_why_candidate_mentions_platform_and_shape_is_stable():
     from jingyantai.runtime.judges import Challenger
 

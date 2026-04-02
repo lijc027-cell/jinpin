@@ -7,7 +7,7 @@ from jingyantai.domain.phases import CandidateStatus, GapPriority, ReviewVerdict
 def _covered_dimensions_for_candidate(
     state: RunState, *, candidate_id: str, required_dimensions: list[str]
 ) -> set[str]:
-    evidence_ids = {evidence.evidence_id for evidence in state.evidence}
+    evidence_by_id = {evidence.evidence_id: evidence for evidence in state.evidence}
 
     covered: set[str] = set()
     for finding in state.findings:
@@ -17,7 +17,10 @@ def _covered_dimensions_for_candidate(
             continue
         if not finding.evidence_ids:
             continue
-        if all(evidence_id in evidence_ids for evidence_id in finding.evidence_ids):
+        if all(
+            evidence_id in evidence_by_id and evidence_by_id[evidence_id].subject_id == candidate_id
+            for evidence_id in finding.evidence_ids
+        ):
             covered.add(finding.dimension)
     return covered
 
