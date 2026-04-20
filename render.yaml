@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: jingyantai
+    runtime: python
+    plan: free
+    buildCommand: pip install -e .
+    startCommand: python -m jingyantai.webapp
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: PROVIDER
+        value: deepseek
+      - key: MODEL
+        value: deepseek-chat
+      - key: BASE_URL
+        value: https://api.deepseek.com
+      - key: API_KEY_ENV
+        value: DEEPSEEK_API_KEY
+      - key: TIMEOUT_SECONDS
+        value: "60"
+      - key: MAX_RETRIES
+        value: "1"
+      - key: RUNS_DIR
+        value: /tmp/jingyantai-runs
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: EXA_API_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false

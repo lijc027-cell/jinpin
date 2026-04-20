@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from jingyantai.domain.phases import (
@@ -144,6 +146,36 @@ class RunTrace(BaseModel):
     review_decisions: list[str]
     stop_or_continue: str
     role_errors: list[str] = Field(default_factory=list)
+    diagnostics: list[str] = Field(default_factory=list)
+    role_timings_ms: dict[str, int] = Field(default_factory=dict)
+    tool_timings_ms: dict[str, int] = Field(default_factory=dict)
+    phase_duration_ms: int = 0
+    external_fetches: int = 0
+
+
+class RunProgressEvent(BaseModel):
+    run_id: str
+    round_index: int
+    phase: Phase
+    stage: str
+    message: str
+    candidate_count: int
+    finding_count: int
+    external_fetch_count: int
+    stop_reason: str | None = None
+
+
+class EvaluatorLogEvent(BaseModel):
+    run_id: str
+    round_index: int
+    phase: Phase
+    event_type: str
+    judge_type: str | None = None
+    verdict: str | None = None
+    target_scope: str | None = None
+    reasons: list[str] = Field(default_factory=list)
+    required_actions: list[str] = Field(default_factory=list)
+    stop_reason: str | None = None
 
 
 class FinalReport(BaseModel):
@@ -172,8 +204,15 @@ class RunState(BaseModel):
     review_decisions: list[ReviewDecision] = Field(default_factory=list)
     traces: list[RunTrace] = Field(default_factory=list)
     final_report: FinalReport | None = None
+    stop_reason: str | None = None
     round_index: int = 0
+    resume_phase: Phase | None = None
+    resume_round_index: int | None = None
     external_fetch_count: int = 0
+    external_fetch_breakdown: dict[str, int] = Field(default_factory=dict)
+    memory_snapshot: dict[str, Any] = Field(default_factory=dict)
+    historical_memory: dict[str, Any] = Field(default_factory=dict)
+    watchlist: list[dict[str, Any]] = Field(default_factory=list)
     carry_forward_context: str = ""
 
     def top_candidates(self, limit: int) -> list[Candidate]:

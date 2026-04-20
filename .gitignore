@@ -3,6 +3,8 @@
 __pycache__
 .pytest_cache
 *.pyc
+*.tmp
+*_write_probe
 runs
 dist
 build

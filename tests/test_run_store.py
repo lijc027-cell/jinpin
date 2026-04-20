@@ -67,3 +67,16 @@ def test_save_report_writes_to_artifacts_final_report(tmp_path: Path):
 
     assert (tmp_path / "run-1" / "artifacts" / "final-report.json").exists()
     assert saved_path == tmp_path / "run-1" / "artifacts" / "final-report.json"
+
+
+def test_run_store_persists_and_clears_cancel_request(tmp_path: Path):
+    store = FileRunStore(tmp_path)
+
+    request_path = store.request_cancel("run-1", reason="cancelled by user")
+
+    assert request_path.exists()
+    assert store.load_cancel_request("run-1") == "cancelled by user"
+
+    store.clear_cancel_request("run-1")
+
+    assert store.load_cancel_request("run-1") is None

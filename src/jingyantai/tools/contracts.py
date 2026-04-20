@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 
@@ -17,6 +17,14 @@ class PageData:
     title: str
     text: str
     excerpt: str
+
+
+@dataclass
+class ToolExecutionMetrics:
+    external_fetches: int = 0
+    fetch_breakdown: dict[str, int] = field(default_factory=dict)
+    timings_ms: dict[str, int] = field(default_factory=dict)
+    notes: list[str] = field(default_factory=list)
 
 
 class SearchClient(Protocol):

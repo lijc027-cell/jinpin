@@ -42,7 +42,7 @@ def test_provider_config_defaults_match_task_1_plan():
         api_key_env="DEEPSEEK_API_KEY",
     )
 
-    assert config.timeout_seconds == 20.0
+    assert config.timeout_seconds == 60.0
     assert config.max_retries == 1
 
 
@@ -51,6 +51,7 @@ def test_model_invocation_fields_are_available_with_default_temperature():
         system_prompt="you are helpful",
         payload={"question": "hello"},
         response_schema_name="summary",
+        response_schema={"type": "object", "properties": {"summary": {"type": "string"}}},
     )
 
     assert invocation.system_prompt == "you are helpful"

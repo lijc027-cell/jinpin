@@ -26,6 +26,7 @@ def _minimal_budget() -> BudgetPolicy:
 
 def test_stop_judge_requires_required_dimensions_constructor_and_does_not_depend_on_brief():
     from jingyantai.runtime.judges import StopJudge
+    from jingyantai.runtime.policies import StopBar
 
     brief = ResearchBrief(
         target="Claude Code",
@@ -66,7 +67,24 @@ def test_stop_judge_requires_required_dimensions_constructor_and_does_not_depend
         )
     )
 
-    decision = StopJudge(required_dimensions=["workflow", "pricing"]).run(state)
+    state.evidence.append(
+        Evidence(
+            evidence_id="e1",
+            subject_id="c1",
+            claim="Workflow claim for Competitor One",
+            source_url="https://example.com/c1",
+            source_type="web",
+            snippet="snippet",
+            captured_at="2026-04-02",
+            freshness_score=0.5,
+            confidence=0.9,
+            supports_or_conflicts="supports",
+        )
+    )
+
+    decision = StopJudge(required_dimensions=["workflow", "pricing"], stop_bar=StopBar(min_confirmed_candidates=1)).run(
+        state
+    )
 
     assert decision.verdict == StopVerdict.CONTINUE
     assert decision.gap_tickets
@@ -118,6 +136,74 @@ def test_stop_judge_does_not_count_finding_as_coverage_without_evidence():
     decision = StopJudge(required_dimensions=["workflow", "pricing"]).run(state)
 
     assert decision.verdict == StopVerdict.CONTINUE
+
+
+def test_stop_judge_continues_with_hard_gate_reason_and_no_gap_tickets_when_hard_gate_fails():
+    from jingyantai.runtime.judges import StopJudge
+    from jingyantai.runtime.policies import StopBar
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.DECIDE,
+        budget=_minimal_budget(),
+    )
+    state.candidates.append(
+        Candidate(
+            candidate_id="a",
+            name="Aider",
+            canonical_url="https://aider.chat",
+            status=CandidateStatus.CONFIRMED,
+            relevance_score=0.9,
+            why_candidate="terminal coding agent",
+        )
+    )
+
+    stop = StopJudge(["positioning"], stop_bar=StopBar.default())
+    decision = stop.run(state)
+
+    assert decision.verdict == StopVerdict.CONTINUE
+    assert "hard gate" in decision.reasons[0].lower()
+    assert decision.gap_tickets == []
+
+
+def test_stop_judge_hard_gate_runs_before_required_dimensions_empty_early_return():
+    from jingyantai.runtime.judges import StopJudge
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.DECIDE,
+        budget=_minimal_budget(),
+    )
+    state.candidates.append(
+        Candidate(
+            candidate_id="a",
+            name="Aider",
+            canonical_url="https://aider.chat",
+            status=CandidateStatus.CONFIRMED,
+            relevance_score=0.9,
+            why_candidate="terminal coding agent",
+        )
+    )
+
+    decision = StopJudge(required_dimensions=[]).run(state)
+
+    assert decision.verdict == StopVerdict.CONTINUE
+    assert "hard gate" in decision.reasons[0].lower()
+    assert decision.gap_tickets == []
+
+
+def test_stop_bar_rejects_min_confirmed_candidates_zero():
+    from pydantic import ValidationError
+
+    from jingyantai.runtime.policies import StopBar
+
+    try:
+        StopBar(min_confirmed_candidates=0)
+        assert False, "Expected ValidationError for min_confirmed_candidates=0"
+    except ValidationError:
+        pass
 
 
 def test_evidence_judge_fails_on_low_confidence_evidence():
@@ -182,6 +268,43 @@ def test_evidence_judge_is_not_pass_on_stale_evidence():
     assert decision.verdict != ReviewVerdict.PASS
 
 
+def test_evidence_judge_uses_quality_rubric_thresholds():
+    from jingyantai.runtime.judges import EvidenceJudge
+    from jingyantai.runtime.policies import QualityRubric
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.DEEPEN,
+        budget=_minimal_budget(),
+        round_index=1,
+    )
+    state.evidence.append(
+        Evidence(
+            evidence_id="e1",
+            subject_id="c1",
+            claim="Supports a key workflow claim",
+            source_url="https://example.com",
+            source_type="web",
+            snippet="snippet",
+            captured_at="2026-04-02",
+            freshness_score=0.75,
+            confidence=0.75,
+            supports_or_conflicts="supports",
+        )
+    )
+
+    rubric = QualityRubric(
+        evidence_freshness_threshold=0.7,
+        evidence_confidence_threshold=0.8,
+    )
+    decision = EvidenceJudge(rubric=rubric).run(state)
+
+    assert decision.judge_type == "evidence"
+    assert decision.verdict == ReviewVerdict.FAIL
+    assert "low-confidence evidence" in decision.reasons[0]
+
+
 def test_evidence_judge_is_not_pass_on_conflict_evidence():
     from jingyantai.runtime.judges import EvidenceJudge
 
@@ -213,7 +336,7 @@ def test_evidence_judge_is_not_pass_on_conflict_evidence():
     assert decision.verdict != ReviewVerdict.PASS
 
 
-def test_stop_judge_adds_scout_gap_ticket_when_confirmed_below_threshold():
+def test_stop_judge_continues_with_hard_gate_reason_when_confirmed_below_threshold():
     from jingyantai.runtime.judges import StopJudge
 
     state = RunState(
@@ -247,15 +370,8 @@ def test_stop_judge_adds_scout_gap_ticket_when_confirmed_below_threshold():
     decision = StopJudge(required_dimensions=["workflow"]).run(state)
 
     assert decision.verdict == StopVerdict.CONTINUE
-    assert "Quality bar not met" in decision.reasons
-    assert any(
-        ticket.gap_type == "candidate_count"
-        and ticket.target_scope == "run"
-        and ticket.owner_role == "scout"
-        and ticket.acceptance_rule == "Confirm at least 3 direct competitors."
-        and ticket.blocking_reason == "Need at least 3 confirmed competitors."
-        for ticket in decision.gap_tickets
-    )
+    assert "hard gate" in decision.reasons[0].lower()
+    assert decision.gap_tickets == []
 
 
 def test_coverage_judge_shape_and_required_actions_are_missing_list():
@@ -308,6 +424,59 @@ def test_coverage_judge_shape_and_required_actions_are_missing_list():
     assert decision.target_scope == "confirmed_candidates"
     assert decision.verdict == ReviewVerdict.FAIL
     assert any("pricing" in item for item in decision.required_actions)
+
+
+def test_coverage_judge_uses_quality_rubric_required_dimensions_by_default():
+    from jingyantai.runtime.judges import CoverageJudge
+    from jingyantai.runtime.policies import QualityRubric
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.DECIDE,
+        budget=_minimal_budget(),
+        round_index=1,
+    )
+    state.candidates.append(
+        Candidate(
+            candidate_id="c1",
+            name="Competitor One",
+            canonical_url="https://c1.dev",
+            status=CandidateStatus.CONFIRMED,
+            relevance_score=0.9,
+            why_candidate="direct",
+        )
+    )
+    state.evidence.append(
+        Evidence(
+            evidence_id="e1",
+            subject_id="c1",
+            claim="workflow claim",
+            source_url="https://example.com",
+            source_type="web",
+            snippet="snippet",
+            captured_at="2026-04-02",
+            freshness_score=0.9,
+            confidence=0.9,
+        )
+    )
+    state.findings.append(
+        Finding(
+            finding_id="f1",
+            subject_id="c1",
+            dimension="workflow",
+            summary="Workflow summary.",
+            evidence_ids=["e1"],
+            confidence=0.8,
+        )
+    )
+
+    decision = CoverageJudge(
+        rubric=QualityRubric(required_dimensions=["workflow", "pricing"])
+    ).run(state)
+
+    assert decision.verdict == ReviewVerdict.FAIL
+    assert any(item == "Competitor One: pricing" for item in decision.required_actions)
 
 
 def test_coverage_and_stop_judges_do_not_count_other_candidate_evidence_as_coverage():
@@ -676,6 +845,317 @@ def test_stop_judge_continues_when_review_signals_or_open_questions_or_uncertain
     assert any(ticket.gap_type == "review_decisions" for ticket in decision.gap_tickets)
     assert any(ticket.gap_type == "open_questions" for ticket in decision.gap_tickets)
     assert any(ticket.gap_type == "uncertainties" for ticket in decision.gap_tickets)
+
+
+def test_stop_judge_uses_quality_rubric_required_dimensions_by_default():
+    from jingyantai.runtime.judges import StopJudge
+    from jingyantai.runtime.policies import QualityRubric, StopBar
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.STOP,
+        budget=_minimal_budget(),
+        round_index=1,
+    )
+    state.candidates.extend(
+        [
+            Candidate(
+                candidate_id="a",
+                name="Alpha",
+                canonical_url="https://a.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.9,
+                why_candidate="direct",
+            ),
+            Candidate(
+                candidate_id="b",
+                name="Beta",
+                canonical_url="https://b.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.8,
+                why_candidate="direct",
+            ),
+            Candidate(
+                candidate_id="c",
+                name="Gamma",
+                canonical_url="https://c.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.7,
+                why_candidate="direct",
+            ),
+        ]
+    )
+    state.evidence.extend(
+        [
+            Evidence(
+                evidence_id="e-a",
+                subject_id="a",
+                claim="workflow claim a",
+                source_url="https://example.com/a",
+                source_type="web",
+                snippet="snippet",
+                captured_at="2026-04-02",
+                freshness_score=0.9,
+                confidence=0.9,
+                supports_or_conflicts="supports",
+            ),
+            Evidence(
+                evidence_id="e-b",
+                subject_id="b",
+                claim="workflow claim b",
+                source_url="https://example.com/b",
+                source_type="web",
+                snippet="snippet",
+                captured_at="2026-04-02",
+                freshness_score=0.9,
+                confidence=0.9,
+                supports_or_conflicts="supports",
+            ),
+            Evidence(
+                evidence_id="e-c",
+                subject_id="c",
+                claim="workflow claim c",
+                source_url="https://example.com/c",
+                source_type="web",
+                snippet="snippet",
+                captured_at="2026-04-02",
+                freshness_score=0.9,
+                confidence=0.9,
+                supports_or_conflicts="supports",
+            ),
+        ]
+    )
+    state.findings.extend(
+        [
+            Finding(
+                finding_id="f-a",
+                subject_id="a",
+                dimension="workflow",
+                summary="Workflow a",
+                evidence_ids=["e-a"],
+                confidence=0.8,
+            ),
+            Finding(
+                finding_id="f-b",
+                subject_id="b",
+                dimension="workflow",
+                summary="Workflow b",
+                evidence_ids=["e-b"],
+                confidence=0.8,
+            ),
+            Finding(
+                finding_id="f-c",
+                subject_id="c",
+                dimension="workflow",
+                summary="Workflow c",
+                evidence_ids=["e-c"],
+                confidence=0.8,
+            ),
+        ]
+    )
+
+    decision = StopJudge(
+        stop_bar=StopBar(min_confirmed_candidates=3),
+        rubric=QualityRubric(required_dimensions=["workflow"]),
+    ).run(state)
+
+    assert decision.verdict == StopVerdict.STOP
+
+
+def test_stop_judge_blocks_stop_when_high_impact_uncertainties_exceed_stop_bar():
+    from jingyantai.runtime.judges import StopJudge
+    from jingyantai.runtime.policies import StopBar
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.STOP,
+        budget=_minimal_budget(),
+        round_index=1,
+    )
+    for candidate_id, name in [("a", "Alpha"), ("b", "Beta"), ("c", "Gamma")]:
+        state.candidates.append(
+            Candidate(
+                candidate_id=candidate_id,
+                name=name,
+                canonical_url=f"https://{name.lower()}.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.9,
+                why_candidate="direct",
+            )
+        )
+        state.evidence.append(
+            Evidence(
+                evidence_id=f"e-{candidate_id}",
+                subject_id=candidate_id,
+                claim=f"workflow claim {name}",
+                source_url=f"https://example.com/{candidate_id}",
+                source_type="web",
+                snippet="snippet",
+                captured_at="2026-04-02",
+                freshness_score=0.9,
+                confidence=0.9,
+                supports_or_conflicts="supports",
+            )
+        )
+        state.findings.append(
+            Finding(
+                finding_id=f"f-{candidate_id}",
+                subject_id=candidate_id,
+                dimension="workflow",
+                summary=f"Workflow {name}",
+                evidence_ids=[f"e-{candidate_id}"],
+                confidence=0.8,
+            )
+        )
+    state.uncertainties.append(
+        UncertaintyItem(
+            statement="Alpha pricing could change competitor ranking",
+            impact="could change competitor ranking",
+            resolvability="medium",
+            required_evidence="official pricing page",
+            owner_role="analyst",
+        )
+    )
+
+    decision = StopJudge(
+        required_dimensions=["workflow"],
+        stop_bar=StopBar(min_confirmed_candidates=3, max_high_impact_uncertainties=0),
+    ).run(state)
+
+    assert decision.verdict == StopVerdict.CONTINUE
+    assert any("high-impact" in reason.lower() for reason in decision.reasons)
+    assert any(ticket.gap_type == "uncertainties" for ticket in decision.gap_tickets)
+
+
+def test_stop_judge_emits_more_specific_gap_ticket_scope_for_open_questions_and_uncertainties():
+    from jingyantai.runtime.judges import StopJudge
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.STOP,
+        budget=_minimal_budget(),
+        round_index=2,
+    )
+    for candidate_id, name in [("a", "Alpha"), ("b", "Beta"), ("c", "Gamma")]:
+        state.candidates.append(
+            Candidate(
+                candidate_id=candidate_id,
+                name=name,
+                canonical_url=f"https://{name.lower()}.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.9,
+                why_candidate="direct",
+            )
+        )
+        state.evidence.append(
+            Evidence(
+                evidence_id=f"e-{candidate_id}",
+                subject_id=candidate_id,
+                claim=f"workflow claim {name}",
+                source_url=f"https://example.com/{candidate_id}",
+                source_type="web",
+                snippet="snippet",
+                captured_at="2026-04-02",
+                freshness_score=0.9,
+                confidence=0.9,
+                supports_or_conflicts="supports",
+            )
+        )
+        state.findings.append(
+            Finding(
+                finding_id=f"f-{candidate_id}",
+                subject_id=candidate_id,
+                dimension="workflow",
+                summary=f"Workflow {name}",
+                evidence_ids=[f"e-{candidate_id}"],
+                confidence=0.8,
+            )
+        )
+
+    state.open_questions.append(
+        OpenQuestion(
+            question="Pricing page still unclear",
+            target_subject="Alpha",
+            priority=GapPriority.MEDIUM,
+            owner_role="analyst",
+            created_by="coverage",
+        )
+    )
+    state.uncertainties.append(
+        UncertaintyItem(
+            statement="Alpha pricing tiers remain unclear",
+            impact="high",
+            resolvability="medium",
+            required_evidence="pricing page",
+            owner_role="analyst",
+        )
+    )
+
+    decision = StopJudge(required_dimensions=["workflow"]).run(state)
+
+    assert any(ticket.gap_type == "open_questions" and ticket.target_scope == "Alpha" for ticket in decision.gap_tickets)
+    assert any(ticket.gap_type == "uncertainties" and ticket.target_scope == "Alpha" for ticket in decision.gap_tickets)
+
+
+def test_stop_judge_reports_coverage_ratio_when_threshold_is_not_met():
+    from jingyantai.runtime.judges import StopJudge
+    from jingyantai.runtime.policies import StopBar
+
+    state = RunState(
+        run_id="run-1",
+        target="Claude Code",
+        current_phase=Phase.STOP,
+        budget=_minimal_budget(),
+        round_index=1,
+    )
+    for candidate_id, name in [("a", "Alpha"), ("b", "Beta"), ("c", "Gamma")]:
+        state.candidates.append(
+            Candidate(
+                candidate_id=candidate_id,
+                name=name,
+                canonical_url=f"https://{name.lower()}.dev",
+                status=CandidateStatus.CONFIRMED,
+                relevance_score=0.9,
+                why_candidate="direct",
+            )
+        )
+    for candidate_id in ["a", "b"]:
+        state.evidence.append(
+            Evidence(
+                evidence_id=f"e-{candidate_id}",
+                subject_id=candidate_id,
+                claim=f"workflow claim {candidate_id}",
+                source_url=f"https://example.com/{candidate_id}",
+                source_type="web",
+                snippet="snippet",
+                captured_at="2026-04-02",
+                freshness_score=0.9,
+                confidence=0.9,
+                supports_or_conflicts="supports",
+            )
+        )
+        state.findings.append(
+            Finding(
+                finding_id=f"f-{candidate_id}",
+                subject_id=candidate_id,
+                dimension="workflow",
+                summary=f"Workflow {candidate_id}",
+                evidence_ids=[f"e-{candidate_id}"],
+                confidence=0.8,
+            )
+        )
+
+    decision = StopJudge(
+        required_dimensions=["workflow"],
+        stop_bar=StopBar(min_confirmed_candidates=3, min_coverage_ratio=1.0),
+    ).run(state)
+
+    assert decision.verdict == StopVerdict.CONTINUE
+    assert any("coverage ratio" in reason.lower() for reason in decision.reasons)
+    assert any(ticket.gap_type == "coverage" for ticket in decision.gap_tickets)
 
 
 def test_challenger_warns_when_why_candidate_mentions_platform_and_shape_is_stable():
