@@ -31,3 +31,6 @@ jingyantai = "jingyantai.cli:app"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
