@@ -41,164 +41,223 @@ INDEX_HTML = """<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>竞研台体验页</title>
+  <title>竞研台 - 智能竞争调研</title>
   <style>
     :root {
-      --bg: #f4efe6;
-      --paper: #fffaf2;
-      --ink: #1f1b16;
-      --muted: #6a5f53;
-      --accent: #b14d2a;
-      --accent-2: #264653;
-      --line: #d8ccbc;
+      --bg: #eef3ef;
+      --panel: #ffffff;
+      --line: #d7dfd7;
+      --text: #193226;
+      --muted: #607364;
+      --brand: #245f45;
+      --brand-2: #3f8b63;
+      --accent: #245f45;
+      --accent-2: #3f8b63;
+      --paper: #ffffff;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: Georgia, "Times New Roman", serif;
-      background:
-        radial-gradient(circle at top left, #efe2cf 0, transparent 28%),
-        linear-gradient(180deg, #f6f0e8 0%, var(--bg) 100%);
-      color: var(--ink);
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(circle at top left, #f6fbf7, var(--bg));
+      color: var(--text);
+      line-height: 1.6;
     }
     .wrap {
-      max-width: 960px;
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 32px 20px 48px;
+      padding: 32px 24px 60px;
     }
     .hero {
-      background: var(--paper);
+      background: linear-gradient(145deg, #1f4f3a, #2d7454);
+      color: #f3fbf5;
       border: 1px solid var(--line);
-      border-radius: 20px;
-      padding: 28px;
-      box-shadow: 0 16px 40px rgba(68, 49, 34, 0.08);
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 12px 40px rgba(22, 49, 35, 0.1);
+      margin-bottom: 24px;
     }
     h1 {
-      margin: 0 0 8px;
-      font-size: 38px;
-      line-height: 1.05;
+      margin: 0 0 12px;
+      font-size: 32px;
+      line-height: 1.2;
     }
     .lede {
       margin: 0;
-      color: var(--muted);
-      font-size: 17px;
+      color: rgba(243, 251, 245, 0.85);
+      font-size: 16px;
     }
     .panel {
-      margin-top: 20px;
-      background: rgba(255, 250, 242, 0.9);
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 20px;
+      margin-top: 24px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      padding: 24px;
+      backdrop-filter: blur(10px);
     }
     label {
       display: block;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
       font-size: 14px;
-      color: var(--muted);
+      color: rgba(243, 251, 245, 0.8);
+      font-weight: 600;
+      letter-spacing: 0.05em;
     }
     input {
       width: 100%;
-      padding: 14px 16px;
-      border-radius: 14px;
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--ink);
+      padding: 16px 20px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.95);
+      color: var(--text);
       font-size: 18px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    input:focus {
+      border-color: #fff;
+      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.2);
     }
     .row {
       display: flex;
       gap: 12px;
-      margin-top: 14px;
+      margin-top: 18px;
       flex-wrap: wrap;
     }
     button {
       border: 0;
       border-radius: 999px;
-      padding: 12px 18px;
+      padding: 12px 24px;
       font-size: 15px;
+      font-weight: 600;
       cursor: pointer;
+      transition: all 0.2s;
     }
     .primary {
-      background: var(--accent);
-      color: white;
+      background: #ffffff;
+      color: var(--brand);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.15);
     }
     .secondary {
-      background: var(--accent-2);
-      color: white;
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+    }
+    .secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
     }
     .ghost {
       background: transparent;
-      color: var(--muted);
-      border: 1px solid var(--line);
+      color: rgba(243, 251, 245, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .ghost:hover {
+      background: rgba(255, 255, 255, 0.1);
     }
     .grid {
       display: grid;
-      gap: 16px;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      margin-top: 20px;
+      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     }
     .card {
-      background: var(--paper);
+      background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 18px;
-      min-height: 180px;
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 12px 30px rgba(22, 49, 35, 0.04);
+      transition: transform 0.2s;
     }
     .card h2 {
-      margin: 0 0 12px;
+      margin: 0 0 16px;
       font-size: 18px;
+      color: var(--brand);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card h2::before {
+      content: "";
+      display: inline-block;
+      width: 4px;
+      height: 18px;
+      background: var(--brand-2);
+      border-radius: 2px;
     }
     .meta {
-      color: var(--muted);
-      font-size: 14px;
-      line-height: 1.6;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.7;
     }
+    .empty { color: var(--muted); font-style: italic; }
     .log {
       margin: 0;
-      padding-left: 18px;
-      line-height: 1.8;
+      padding: 0;
+      list-style: none;
     }
     .log-item {
-      margin-bottom: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px dashed var(--line);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
     }
+    .log-item:last-child { border-bottom: 0; margin-bottom: 0; }
     .log-time {
       color: var(--muted);
       font-size: 12px;
-      margin-right: 8px;
+      white-space: nowrap;
+      padding-top: 2px;
     }
     .log-phase {
       display: inline-block;
-      min-width: 92px;
-      padding: 2px 8px;
-      border-radius: 999px;
+      padding: 2px 10px;
+      border-radius: 6px;
       font-size: 12px;
-      margin-right: 8px;
-      color: white;
-      background: var(--accent-2);
+      font-weight: 600;
+      color: #fff;
+      background: var(--brand-2);
+      white-space: nowrap;
     }
-    .phase-expand { background: #9c6644; }
-    .phase-deepen { background: #355070; }
-    .phase-challenge { background: #6d597a; }
-    .phase-decide { background: #3a5a40; }
-    .phase-stop { background: #8a3b12; }
-    .phase-initialize { background: #7f5539; }
+    .phase-expand { background: #3f8b63; }
+    .phase-deepen { background: #2d7454; }
+    .phase-challenge { background: #1f4f3a; }
+    .phase-decide { background: #5a8e7a; }
+    .phase-stop { background: #607364; }
+    .phase-initialize { background: #88a896; }
     .log-message {
-      color: var(--ink);
+      color: var(--text);
       font-size: 14px;
+      word-break: break-all;
     }
     .pill {
       display: inline-block;
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: #efe2cf;
+      padding: 6px 12px;
+      border-radius: 12px;
+      background: #e2f0e6;
+      color: #1f6a45;
       margin: 0 8px 8px 0;
       font-size: 13px;
+      font-weight: 600;
+      border: 1px solid #cce3d2;
     }
-    .empty { color: var(--muted); }
+    pre {
+      background: #10231a;
+      color: #d5efe0;
+      padding: 16px;
+      border-radius: 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+      overflow-x: auto;
+    }
     @media (max-width: 700px) {
-      h1 { font-size: 30px; }
-      .wrap { padding: 20px 14px 36px; }
-      .hero, .panel, .card { padding: 16px; }
+      h1 { font-size: 26px; }
+      .wrap { padding: 16px 16px 40px; }
+      .hero, .card { padding: 20px; }
     }
   </style>
 </head>
@@ -206,17 +265,17 @@ INDEX_HTML = """<!doctype html>
   <div class="wrap">
     <section class="hero">
       <h1>竞研台</h1>
-      <p class="lede">给现有 Python CLI 套一个最小 Web 界面。输入目标，启动研究，然后轮询看阶段推进和最终报告。</p>
+      <p class="lede">基于智能 Agent 的竞争调研分析系统。输入研究目标，系统将自动进行多轮深度检索、交叉质疑与综合研判。</p>
       <div class="panel">
-        <label for="target">研究目标</label>
-        <input id="target" value="Claude Code" />
+        <label for="target">研究目标 (如：Claude Code)</label>
+        <input id="target" value="Claude Code" placeholder="输入要调研的产品或公司名称..." />
         <div class="row">
-          <button class="primary" id="startBtn">开始研究</button>
+          <button class="primary" id="startBtn">启动研究</button>
           <button class="secondary" id="refreshBtn">刷新状态</button>
           <button class="ghost" id="loadBtn">读取报告</button>
-          <button class="ghost" id="rawReportBtn">查看最终报告</button>
-          <button class="ghost" id="rawStateBtn">查看运行状态</button>
-          <button class="ghost" id="rawProgressBtn">查看进度日志</button>
+          <button class="ghost" id="rawReportBtn">最终报告</button>
+          <button class="ghost" id="rawStateBtn">运行状态</button>
+          <button class="ghost" id="rawProgressBtn">进度日志</button>
         </div>
       </div>
     </section>
@@ -224,32 +283,32 @@ INDEX_HTML = """<!doctype html>
     <section class="grid">
       <article class="card">
         <h2>运行状态</h2>
-        <div id="status" class="meta empty">还没有开始运行。</div>
+        <div id="status" class="meta empty">等待任务启动...</div>
       </article>
       <article class="card">
-        <h2>阶段进度</h2>
+        <h2>当前阶段</h2>
         <div id="progress" class="meta empty">暂无进度。</div>
       </article>
       <article class="card">
-        <h2>确认竞品</h2>
+        <h2>识别到的竞品</h2>
         <div id="competitors" class="empty">暂无结果。</div>
       </article>
       <article class="card">
-        <h2>摘要与不确定项</h2>
-        <div id="summary" class="meta empty">暂无报告。</div>
+        <h2>调研摘要与风险</h2>
+        <div id="summary" class="meta empty">暂无报告摘要。</div>
       </article>
       <article class="card">
-        <h2>结果判读</h2>
+        <h2>系统判读结论</h2>
         <div id="outcome" class="meta empty">暂无诊断。</div>
       </article>
       <article class="card" style="grid-column: 1 / -1; min-height: 260px;">
-        <h2>本轮日志</h2>
+        <h2>执行日志 (当前轮次)</h2>
         <ol id="roundLog" class="log"></ol>
       </article>
       <article class="card" style="grid-column: 1 / -1; min-height: 300px;">
-        <h2>原始数据</h2>
-        <div id="rawTitle" class="meta empty">点击上方按钮查看最终报告、运行状态或进度日志。</div>
-        <pre id="rawData" style="white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.6; color: var(--ink); margin: 14px 0 0;"></pre>
+        <h2>原始数据视图</h2>
+        <div id="rawTitle" class="meta empty" style="margin-bottom: 12px;">点击上方按钮查看详细数据原文。</div>
+        <pre id="rawData" style="white-space: pre-wrap; word-break: break-word;"></pre>
       </article>
     </section>
   </div>
@@ -270,17 +329,19 @@ INDEX_HTML = """<!doctype html>
       const node = document.getElementById(id);
       if (isHtml) node.innerHTML = text;
       else node.textContent = text;
+      if (text) node.classList.remove("empty");
+      else node.classList.add("empty");
     }
 
     function renderStatus(data) {
       if (!data) return;
       currentRunId = data.run_id || currentRunId;
       const lines = [
-        `run_id: ${data.run_id || "-"}`,
-        `target: ${data.target || "-"}`,
-        `phase: ${data.phase || "-"}`,
-        `round: ${data.round_index ?? "-"}`,
-        `stop_reason: ${data.stop_reason || "运行中"}`,
+        `ID: ${data.run_id || "-"}`,
+        `目标: ${data.target || "-"}`,
+        `阶段: ${data.phase || "-"}`,
+        `轮次: ${data.round_index ?? "-"}`,
+        `状态: ${data.stop_reason || "深度执行中..."}`,
       ];
       setText("status", lines.join("\\n"));
     }
@@ -291,11 +352,14 @@ INDEX_HTML = """<!doctype html>
       logNode.innerHTML = "";
       if (!events || events.length === 0) {
         progressNode.textContent = "暂无进度。";
-        logNode.innerHTML = '<li class="empty">暂无日志。</li>';
+        progressNode.classList.add("empty");
+        logNode.innerHTML = '<li class="empty">暂无日志内容。</li>';
         return;
       }
+      progressNode.classList.remove("empty");
       const currentEvent = events[events.length - 1];
-      progressNode.textContent = `${currentEvent.phase_label || currentEvent.phase} / ${currentEvent.stage_label || currentEvent.stage} / ${currentEvent.message}`;
+      progressNode.textContent = `${currentEvent.phase_label || currentEvent.phase} ➔ ${currentEvent.stage_label || currentEvent.stage} ➔ ${currentEvent.message}`;
+      
       const currentRound = currentEvent.round_index ?? 0;
       const roundEvents = events.filter(event => (event.round_index ?? 0) === currentRound);
       const seen = new Set();
@@ -311,7 +375,7 @@ INDEX_HTML = """<!doctype html>
         li.innerHTML = `
           <span class="log-time">${time}</span>
           <span class="log-phase ${badgeClass}">${phase}</span>
-          <span class="log-message">${event.stage_label || event.stage}：${event.message}</span>
+          <span class="log-message"><strong>${event.stage_label || event.stage}</strong>：${event.message}</span>
         `;
         logNode.appendChild(li);
       }
@@ -324,7 +388,9 @@ INDEX_HTML = """<!doctype html>
       const confirmed = report.confirmed_competitors || [];
       if (confirmed.length === 0) {
         competitors.textContent = "暂无结果。";
+        competitors.classList.add("empty");
       } else {
+        competitors.classList.remove("empty");
         for (const item of confirmed) {
           const span = document.createElement("span");
           span.className = "pill";
@@ -335,24 +401,24 @@ INDEX_HTML = """<!doctype html>
 
       const uncertainty = report.key_uncertainties || [];
       const uncertaintyText = uncertainty.length === 0
-        ? "暂无不确定项。"
-        : uncertainty.map(item => typeof item === "string" ? item : JSON.stringify(item)).join("\\n");
-      setText("summary", `${report.target_summary || "暂无摘要。"}\\n\\n${uncertaintyText}`);
+        ? ""
+        : "\\n\\n【关键不确定项】\\n" + uncertainty.map(item => typeof item === "string" ? "• " + item : JSON.stringify(item)).join("\\n");
+      setText("summary", (report.target_summary || "暂无报告内容。") + uncertaintyText);
     }
 
     function renderOutcome(outcome) {
       if (!outcome) return;
       const lines = [
-        `状态判定: ${outcome.status || "-"}`,
+        `系统状态: ${outcome.status || "-"}`,
         `确认竞品数: ${outcome.confirmed_count ?? 0}`,
-        `最后阶段: ${outcome.latest_phase || "-"}`,
-        `停止原因: ${outcome.stop_reason || "无"}`,
+        `最后停留阶段: ${outcome.latest_phase || "-"}`,
+        `停止因子: ${outcome.stop_reason || "执行中"}`,
         "",
-        `最后计划: ${outcome.latest_plan || "无"}`,
+        `核心决策路径: ${outcome.latest_plan || "无"}`,
       ];
       const diagnostics = outcome.recent_diagnostics || [];
       if (diagnostics.length > 0) {
-        lines.push("", "最近诊断:");
+        lines.push("", "最近系统诊断:");
         diagnostics.forEach((item, index) => lines.push(`${index + 1}. ${item}`));
       }
       setText("outcome", lines.join("\\n"));
@@ -415,9 +481,9 @@ INDEX_HTML = """<!doctype html>
     document.getElementById("startBtn").addEventListener("click", () => startRun().catch(err => alert(err.message)));
     document.getElementById("refreshBtn").addEventListener("click", () => refreshStatus().catch(err => alert(err.message)));
     document.getElementById("loadBtn").addEventListener("click", () => loadReport().catch(err => alert(err.message)));
-    document.getElementById("rawReportBtn").addEventListener("click", () => loadRaw("report", "最终报告原文").catch(err => alert(err.message)));
-    document.getElementById("rawStateBtn").addEventListener("click", () => loadRaw("state", "运行状态原文").catch(err => alert(err.message)));
-    document.getElementById("rawProgressBtn").addEventListener("click", () => loadRaw("progress", "进度日志原文").catch(err => alert(err.message)));
+    document.getElementById("rawReportBtn").addEventListener("click", () => loadRaw("report", "最终报告 (JSON)").catch(err => alert(err.message)));
+    document.getElementById("rawStateBtn").addEventListener("click", () => loadRaw("state", "运行状态 (JSON)").catch(err => alert(err.message)));
+    document.getElementById("rawProgressBtn").addEventListener("click", () => loadRaw("progress", "进度日志 (JSONL)").catch(err => alert(err.message)));
   </script>
 </body>
 </html>
