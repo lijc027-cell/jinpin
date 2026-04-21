@@ -41,453 +41,703 @@ INDEX_HTML = """<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>竞研台 - 智能竞争调研</title>
+  <title>竞研台 | 智能调研</title>
   <style>
     :root {
-      --bg: #eef3ef;
-      --panel: #ffffff;
-      --line: #d7dfd7;
-      --text: #193226;
-      --muted: #607364;
-      --brand: #245f45;
-      --brand-2: #3f8b63;
-      --accent: #245f45;
-      --accent-2: #3f8b63;
-      --paper: #ffffff;
+      --sk-focus-color: #0071e3;
+      --sk-body-link-color: #0066cc;
+      --apple-blue: #0071e3;
+      --black: #000000;
+      --near-black: #1d1d1f;
+      --light-gray: #f5f5f7;
+      --white: #ffffff;
+      --card-shadow: rgba(0,0,0,0.22) 3px 5px 30px 0px;
+      --dark-surface: #272729;
+      --dark-surface-2: #262628;
+      --dark-surface-3: #28282a;
+      --dark-surface-4: #2a2a2d;
     }
-    * { box-sizing: border-box; }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
     body {
       margin: 0;
-      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-      background: radial-gradient(circle at top left, #f6fbf7, var(--bg));
-      color: var(--text);
-      line-height: 1.6;
+      font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background: var(--black);
+      color: var(--white);
+      overflow-x: hidden;
     }
-    .wrap {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 32px 24px 60px;
-    }
-    .hero {
-      background: linear-gradient(145deg, #1f4f3a, #2d7454);
-      color: #f3fbf5;
-      border: 1px solid var(--line);
-      border-radius: 24px;
-      padding: 32px;
-      box-shadow: 0 12px 40px rgba(22, 49, 35, 0.1);
-      margin-bottom: 24px;
-    }
-    h1 {
-      margin: 0 0 12px;
-      font-size: 32px;
-      line-height: 1.2;
-    }
-    .lede {
-      margin: 0;
-      color: rgba(243, 251, 245, 0.85);
-      font-size: 16px;
-    }
-    .panel {
-      margin-top: 24px;
-      background: rgba(255, 255, 255, 0.15);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 20px;
-      padding: 24px;
-      backdrop-filter: blur(10px);
-    }
-    label {
-      display: block;
-      margin-bottom: 12px;
-      font-size: 14px;
-      color: rgba(243, 251, 245, 0.8);
-      font-weight: 600;
-      letter-spacing: 0.05em;
-    }
-    input {
+
+    /* ── Navigation Glass ── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
       width: 100%;
-      padding: 16px 20px;
-      border-radius: 16px;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      background: rgba(255, 255, 255, 0.95);
-      color: var(--text);
-      font-size: 18px;
-      outline: none;
-      transition: all 0.2s;
-    }
-    input:focus {
-      border-color: #fff;
-      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.2);
-    }
-    .row {
+      height: 48px;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
       display: flex;
-      gap: 12px;
-      margin-top: 18px;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .nav-inner {
+      max-width: 980px;
+      width: 100%;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      text-decoration: none;
+      color: var(--white);
+    }
+    .nav-logo svg {
+      width: 17px;
+      height: 48px;
+      fill: var(--white);
+      display: block;
+    }
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      justify-content: center;
+    }
+    .nav-links a {
+      font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: normal;
+      color: #ffffff;
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+    .nav-links a:hover { color: rgba(255,255,255,0.7); }
+    .nav-links a:focus-visible {
+      outline: 2px solid var(--sk-focus-color);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 20px;
+    }
+    .nav-icon-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 48px;
+      line-height: 1;
+    }
+    .nav-icon-btn svg {
+      width: 15px;
+      height: 15px;
+      fill: #ffffff;
+    }
+    .nav-icon-btn:focus-visible {
+      outline: 2px solid var(--sk-focus-color);
+      outline-offset: 2px;
+    }
+
+    /* ── Hamburger ── */
+    .nav-hamburger {
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      gap: 5px;
+      width: 44px;
+      height: 48px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      align-items: center;
+    }
+    .nav-hamburger span {
+      display: block;
+      width: 18px;
+      height: 1.5px;
+      background: var(--white);
+      border-radius: 2px;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    .nav-hamburger:focus-visible {
+      outline: 2px solid var(--sk-focus-color);
+      outline-offset: 2px;
+    }
+
+    /* ── Mobile Overlay Menu ── */
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.96);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      z-index: 9998;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+    }
+    .mobile-menu.open { display: flex; }
+    .mobile-menu a {
+      font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 24px;
+      font-weight: 300;
+      letter-spacing: normal;
+      color: var(--white);
+      text-decoration: none;
+      line-height: 1.5;
+    }
+    .mobile-menu a:hover { color: rgba(255,255,255,0.7); }
+    .mobile-menu-close {
+      position: absolute;
+      top: 16px;
+      right: 14px;
+      background: rgba(210,210,215,0.64);
+      color: rgba(0,0,0,0.48);
+      border: none;
+      cursor: pointer;
+      line-height: 1;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease;
+      padding: 0;
+    }
+    .mobile-menu-close:hover { background: rgba(255,255,255,0.32); }
+    .mobile-menu-close:focus-visible {
+      outline: 2px solid var(--sk-focus-color);
+      outline-offset: 2px;
+    }
+    .mobile-menu-close svg {
+      width: 14px;
+      height: 14px;
+      fill: rgba(0,0,0,0.48);
+    }
+
+    /* ── Sections ── */
+    section {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .dark-section { background: var(--black); color: var(--white); }
+    .light-section { background: var(--light-gray); color: var(--near-black); }
+    .section-inner {
+      max-width: 980px;
+      width: 100%;
+      padding: 120px 24px;
+      text-align: center;
+    }
+    .section-inner-sm {
+      max-width: 980px;
+      width: 100%;
+      padding: 80px 24px;
+      text-align: center;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+    }
+    .hero .section-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding-top: calc(48px + 72px);
+      padding-bottom: 120px;
+    }
+
+    /* ── Typography ── */
+    h1 {
+      font-family: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 56px;
+      font-weight: 600;
+      line-height: 1.07;
+      letter-spacing: -0.28px;
+      margin: 0 0 10px;
+      text-align: center;
+    }
+    h2.section-title {
+      font-family: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 40px;
+      font-weight: 600;
+      line-height: 1.10;
+      letter-spacing: normal;
+      margin: 0 0 10px;
+      text-align: center;
+    }
+    .eyebrow {
+      font-family: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 21px;
+      font-weight: 400;
+      line-height: 1.19;
+      letter-spacing: 0.231px;
+      margin: 0 0 48px;
+      text-align: center;
+    }
+    .dark-section .eyebrow { color: rgba(255,255,255,0.8); }
+    .light-section .eyebrow { color: rgba(0,0,0,0.8); }
+
+    /* ── Input Panel ── */
+    .input-panel {
+      width: 100%;
+      max-width: 580px;
+      margin: 0 auto;
+    }
+    .input-wrap { position: relative; width: 100%; }
+    input[type="text"] {
+      width: 100%;
+      padding: 16px 22px;
+      border-radius: 11px;
+      border: 3px solid rgba(255,255,255,0.08);
+      background: #272729;
+      color: var(--white);
+      font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 17px;
+      font-weight: 400;
+      letter-spacing: -0.374px;
+      line-height: 1.47;
+      outline: none;
+      transition: outline 0.2s ease;
+      text-align: left;
+    }
+    input[type="text"]::placeholder { color: rgba(255,255,255,0.48); }
+    input[type="text"]:focus {
+      outline: 2px solid var(--sk-focus-color);
+      outline-offset: 2px;
+    }
+    .light-section input[type="text"] {
+      border: 3px solid rgba(0,0,0,0.04);
+      background: #fafafc;
+      color: var(--near-black);
+    }
+    .light-section input[type="text"]::placeholder { color: rgba(29,29,31,0.48); }
+    .light-section input[type="text"]:focus {
+      outline: 2px solid var(--sk-focus-color);
+      outline-offset: 2px;
+    }
+
+    /* ── Buttons ── */
+    .btn-row {
+      display: flex;
+      gap: 14px;
+      margin-top: 24px;
+      justify-content: center;
       flex-wrap: wrap;
     }
     button {
-      border: 0;
-      border-radius: 999px;
-      padding: 12px 24px;
-      font-size: 15px;
-      font-weight: 600;
+      font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 17px;
+      font-weight: 400;
+      letter-spacing: normal;
+      line-height: 1.0;
+      border: none;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.18s ease, color 0.18s ease, transform 0.1s ease;
+      outline: none;
     }
-    .primary {
-      background: #ffffff;
-      color: var(--brand);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    button:focus-visible {
+      outline: 2px solid var(--sk-focus-color);
+      outline-offset: 2px;
     }
-    .primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+
+    .btn-primary {
+      background: var(--apple-blue);
+      color: var(--white);
+      border-radius: 8px;
+      padding: 8px 15px;
+      border: 1px solid transparent;
+      line-height: 1.0;
     }
-    .secondary {
-      background: rgba(255, 255, 255, 0.1);
-      color: #ffffff;
-      border: 1px solid rgba(255, 255, 255, 0.4);
-    }
-    .secondary:hover {
-      background: rgba(255, 255, 255, 0.2);
-    }
-    .ghost {
+    .btn-primary:hover { background: #0077ed; }
+    .btn-primary:active { background: #ededf2; color: var(--near-black); transform: scale(0.98); }
+
+    .btn-pill-dark {
       background: transparent;
-      color: rgba(243, 251, 245, 0.9);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: #2997ff;
+      border-radius: 980px;
+      padding: 8px 15px;
+      border: 1px solid #2997ff;
+      line-height: 1.0;
+      letter-spacing: normal;
     }
-    .ghost:hover {
-      background: rgba(255, 255, 255, 0.1);
+    .btn-pill-dark:hover { text-decoration: underline; }
+    .btn-pill-dark:active { transform: scale(0.98); }
+
+    .btn-pill-light {
+      background: transparent;
+      color: var(--sk-body-link-color);
+      border-radius: 980px;
+      padding: 8px 15px;
+      border: 1px solid var(--sk-body-link-color);
+      line-height: 1.0;
+      letter-spacing: normal;
     }
-    .grid {
+    .btn-pill-light:hover { text-decoration: underline; }
+    .btn-pill-light:active { transform: scale(0.98); }
+
+    /* ── Cards ── */
+    .card-grid {
       display: grid;
-      gap: 20px;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      grid-template-columns: repeat(3, 1fr);
+      margin-top: 40px;
+      width: 100%;
+      text-align: left;
     }
+    .card-grid.two-col { grid-template-columns: repeat(2, 1fr); }
     .card {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 20px;
+      border-radius: 8px;
       padding: 24px;
-      box-shadow: 0 12px 30px rgba(22, 49, 35, 0.04);
-      transition: transform 0.2s;
-    }
-    .card h2 {
-      margin: 0 0 16px;
-      font-size: 18px;
-      color: var(--brand);
+      text-align: left;
       display: flex;
-      align-items: center;
-      gap: 8px;
+      flex-direction: column;
     }
-    .card h2::before {
-      content: "";
+    .dark-section .card { background: var(--dark-surface); color: var(--white); }
+    .dark-section .card.elevated { background: var(--dark-surface-2); }
+    .dark-section .card.elevated-2 { background: var(--dark-surface-3); }
+    .light-section .card {
+      background: var(--light-gray);
+      color: var(--near-black);
+      box-shadow: var(--card-shadow);
+    }
+    .card h3 {
+      font-family: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 21px;
+      font-weight: 700;
+      line-height: 1.19;
+      letter-spacing: 0.231px;
+      margin: 0 0 14px;
+      color: inherit;
+    }
+    .card-body {
+      font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 17px;
+      font-weight: 400;
+      line-height: 1.47;
+      letter-spacing: -0.374px;
+      color: inherit;
+      white-space: pre-wrap;
+      word-break: break-word;
+      flex: 1;
+    }
+    .dark-section .card-body { color: rgba(255,255,255,0.8); }
+    .light-section .card-body { color: rgba(0,0,0,0.8); }
+    .card-body.empty-state { color: rgba(255,255,255,0.48); font-style: italic; }
+    .light-section .card-body.empty-state { color: rgba(0,0,0,0.48); }
+
+    /* ── Pill tags ── */
+    .pill-tag {
       display: inline-block;
-      width: 4px;
-      height: 18px;
-      background: var(--brand-2);
-      border-radius: 2px;
-    }
-    .meta {
-      color: var(--text);
-      font-size: 15px;
-      line-height: 1.7;
-    }
-    .empty { color: var(--muted); font-style: italic; }
-    .log {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-    .log-item {
-      margin-bottom: 12px;
-      padding-bottom: 12px;
-      border-bottom: 1px dashed var(--line);
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-    }
-    .log-item:last-child { border-bottom: 0; margin-bottom: 0; }
-    .log-time {
-      color: var(--muted);
-      font-size: 12px;
-      white-space: nowrap;
-      padding-top: 2px;
-    }
-    .log-phase {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      color: #fff;
-      background: var(--brand-2);
-      white-space: nowrap;
-    }
-    .phase-expand { background: #3f8b63; }
-    .phase-deepen { background: #2d7454; }
-    .phase-challenge { background: #1f4f3a; }
-    .phase-decide { background: #5a8e7a; }
-    .phase-stop { background: #607364; }
-    .phase-initialize { background: #88a896; }
-    .log-message {
-      color: var(--text);
+      padding: 5px 14px;
+      border-radius: 5px;
+      background: var(--dark-surface);
+      color: var(--white);
+      font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
       font-size: 14px;
-      word-break: break-all;
+      font-weight: 400;
+      letter-spacing: -0.224px;
+      line-height: 1.43;
+      margin: 0 6px 6px 0;
     }
-    .pill {
-      display: inline-block;
-      padding: 6px 12px;
-      border-radius: 12px;
-      background: #e2f0e6;
-      color: #1f6a45;
-      margin: 0 8px 8px 0;
-      font-size: 13px;
-      font-weight: 600;
-      border: 1px solid #cce3d2;
+    .light-section .pill-tag {
+      background: #ededf2;
+      color: var(--near-black);
     }
-    pre {
-      background: #10231a;
-      color: #d5efe0;
-      padding: 16px;
-      border-radius: 14px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 13px;
+
+    /* ── Raw data pre ── */
+    pre#rawData {
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.8);
+      padding: 24px;
+      border-radius: 8px;
+      font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      letter-spacing: -0.12px;
+      line-height: 1.33;
+      text-align: left;
+      width: 100%;
+      margin-top: 24px;
       overflow-x: auto;
+      display: none;
     }
-    @media (max-width: 700px) {
-      h1 { font-size: 26px; }
-      .wrap { padding: 16px 16px 40px; }
-      .hero, .card { padding: 20px; }
+
+    /* ── Log items ── */
+    #roundLog { margin-top: 40px; width: 100%; text-align: left; }
+    .log-item {
+      display: flex;
+      gap: 14px;
+      align-items: baseline;
+      padding: 12px 0;
+      font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 400;
+      letter-spacing: -0.224px;
+      line-height: 1.43;
+    }
+    .log-time {
+      font-size: 12px;
+      letter-spacing: -0.12px;
+      color: rgba(29,29,31,0.38);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .dark-section .log-time { color: rgba(255,255,255,0.32); }
+    .log-phase {
+      color: var(--near-black);
+      font-weight: 600;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .dark-section .log-phase { color: rgba(255,255,255,0.8); }
+    .log-msg { color: rgba(0,0,0,0.8); }
+    .dark-section .log-msg { color: rgba(255,255,255,0.8); }
+
+    /* ── Action row ── */
+    .action-row {
+      display: flex;
+      gap: 14px;
+      margin-top: 24px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* ── Insights grid ── */
+    .insights-grid {
+      display: grid;
+      gap: 24px;
+      grid-template-columns: repeat(2, 1fr);
+      margin-top: 40px;
+      width: 100%;
+      text-align: left;
+    }
+    .insights-grid .card.span-full {
+      grid-column: 1 / -1;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 1024px) {
+      .card-grid { grid-template-columns: repeat(2, 1fr); }
+      .insights-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 834px) {
+      h1 { font-size: 48px; }
+      h2.section-title { font-size: 28px; letter-spacing: 0.196px; line-height: 1.14; }
+      .card-grid { grid-template-columns: 1fr; }
+      .insights-grid { grid-template-columns: 1fr; }
+      .insights-grid .card.span-full { grid-column: 1; }
+    }
+    @media (max-width: 640px) {
+      h1 { font-size: 40px; letter-spacing: 0.196px; line-height: 1.14; }
+      h2.section-title { font-size: 28px; letter-spacing: 0.196px; line-height: 1.14; }
+      .nav-links { display: none; }
+      .nav-actions { display: none; }
+      .nav-hamburger { display: flex; }
+      .nav-inner { grid-template-columns: 1fr auto; }
+      .nav-logo { justify-content: flex-start; }
+    }
+    @media (max-width: 480px) {
+      .input-panel { max-width: 100%; }
+      .eyebrow { font-size: 21px; margin-bottom: 48px; }
+      .btn-row { gap: 10px; }
+      .section-inner { padding: 80px 20px; }
+      .section-inner-sm { padding: 60px 20px; }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <section class="hero">
-      <h1>竞研台</h1>
-      <p class="lede">基于智能 Agent 的竞争调研分析系统。输入研究目标，系统将自动进行多轮深度检索、交叉质疑与综合研判。</p>
-      <div class="panel">
-        <label for="target">研究目标 (如：Claude Code)</label>
-        <input id="target" value="Claude Code" placeholder="输入要调研的产品或公司名称..." />
-        <div class="row">
-          <button class="primary" id="startBtn">启动研究</button>
-          <button class="secondary" id="refreshBtn">刷新状态</button>
-          <button class="ghost" id="loadBtn">读取报告</button>
-          <button class="ghost" id="rawReportBtn">最终报告</button>
-          <button class="ghost" id="rawStateBtn">运行状态</button>
-          <button class="ghost" id="rawProgressBtn">进度日志</button>
+
+  <!-- Navigation Glass -->
+  <nav aria-label="主导航">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo" aria-label="竞研台首页">
+        <svg viewBox="0 0 17 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M14.05 10.47c-.02-2.17 1.77-3.22 1.85-3.27-1.01-1.48-2.58-1.68-3.14-1.7-1.34-.14-2.62.79-3.3.79-.68 0-1.73-.77-2.85-.75-1.46.02-2.81.85-3.56 2.16C1.6 10.5 2.7 14.5 4.2 16.65c.74 1.06 1.62 2.25 2.77 2.21 1.12-.05 1.54-.72 2.89-.72 1.35 0 1.73.72 2.91.7 1.2-.02 1.96-1.08 2.69-2.15.85-1.23 1.2-2.42 1.22-2.48-.03-.01-2.61-1-2.63-3.74zM11.9 3.9C12.5 3.17 12.9 2.16 12.78 1.13c-.87.04-1.92.58-2.54 1.3-.56.64-1.05 1.67-.92 2.65.97.07 1.96-.49 2.58-1.18z"/>
+        </svg>
+      </a>
+      <div class="nav-links">
+        <a href="#">研究</a>
+        <a href="#">历史</a>
+        <a href="#">设置</a>
+      </div>
+      <div class="nav-actions">
+        <button class="nav-icon-btn" aria-label="搜索">
+          <svg viewBox="0 0 15 15" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M14.78 13.72l-3.8-3.8a5.82 5.82 0 10-1.06 1.06l3.8 3.8a.75.75 0 001.06-1.06zM1.5 6.25a4.75 4.75 0 114.75 4.75A4.76 4.76 0 011.5 6.25z"/>
+          </svg>
+        </button>
+        <button class="nav-icon-btn" aria-label="账户">
+          <svg viewBox="0 0 15 15" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M7.5 8.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm0 1.5C4.46 10 0 11.54 0 14v.5h15V14c0-2.46-4.46-4-7.5-4z"/>
+          </svg>
+        </button>
+      </div>
+      <button class="nav-hamburger" id="hamburgerBtn" aria-label="打开菜单" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Mobile Overlay Menu -->
+  <div class="mobile-menu" id="mobileMenu" role="dialog" aria-modal="true" aria-label="导航菜单">
+    <button class="mobile-menu-close" id="mobileMenuClose" aria-label="关闭菜单">
+      <svg viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M13 1L1 13M1 1l12 12" stroke="rgba(0,0,0,0.48)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+      </svg>
+    </button>
+    <a href="#" onclick="closeMobileMenu()">研究</a>
+    <a href="#" onclick="closeMobileMenu()">历史</a>
+    <a href="#" onclick="closeMobileMenu()">设置</a>
+  </div>
+
+  <!-- Hero: Dark Section -->
+  <section class="dark-section hero" aria-labelledby="hero-title">
+    <div class="section-inner">
+      <h1 id="hero-title">竞研台</h1>
+      <p class="eyebrow">智能 Agent 驱动的深度竞争分析系统</p>
+      <div class="input-panel">
+        <div class="input-wrap">
+          <input
+            id="target"
+            type="text"
+            value="Claude Code"
+            placeholder="输入调研目标..."
+            aria-label="调研目标"
+          />
+        </div>
+        <div class="btn-row">
+          <button class="btn-primary" id="startBtn">开始研究</button>
+          <button class="btn-pill-dark" id="loadBtn">读取报告</button>
         </div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <section class="grid">
-      <article class="card">
-        <h2>运行状态</h2>
-        <div id="status" class="meta empty">等待任务启动...</div>
-      </article>
-      <article class="card">
-        <h2>当前阶段</h2>
-        <div id="progress" class="meta empty">暂无进度。</div>
-      </article>
-      <article class="card">
-        <h2>识别到的竞品</h2>
-        <div id="competitors" class="empty">暂无结果。</div>
-      </article>
-      <article class="card">
-        <h2>调研摘要与风险</h2>
-        <div id="summary" class="meta empty">暂无报告摘要。</div>
-      </article>
-      <article class="card">
-        <h2>系统判读结论</h2>
-        <div id="outcome" class="meta empty">暂无诊断。</div>
-      </article>
-      <article class="card" style="grid-column: 1 / -1; min-height: 260px;">
-        <h2>执行日志 (当前轮次)</h2>
-        <ol id="roundLog" class="log"></ol>
-      </article>
-      <article class="card" style="grid-column: 1 / -1; min-height: 300px;">
-        <h2>原始数据视图</h2>
-        <div id="rawTitle" class="meta empty" style="margin-bottom: 12px;">点击上方按钮查看详细数据原文。</div>
-        <pre id="rawData" style="white-space: pre-wrap; word-break: break-word;"></pre>
-      </article>
-    </section>
-  </div>
+  <!-- Progress: Light Section -->
+  <section class="light-section" aria-labelledby="progress-title">
+    <div class="section-inner">
+      <h2 class="section-title" id="progress-title">实时进度</h2>
+      <p class="eyebrow">Agent 正在深度扫描全球信源</p>
+      <div class="card-grid">
+        <article class="card">
+          <h3>运行状态</h3>
+          <div id="status" class="card-body empty-state">等待任务...</div>
+        </article>
+        <article class="card">
+          <h3>当前阶段</h3>
+          <div id="progress" class="card-body empty-state">静默中</div>
+        </article>
+        <article class="card">
+          <h3>判读结论</h3>
+          <div id="outcome" class="card-body empty-state">暂无诊断</div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Insights: Dark Section -->
+  <section class="dark-section" aria-labelledby="insights-title">
+    <div class="section-inner">
+      <h2 class="section-title" id="insights-title">深度洞察</h2>
+      <p class="eyebrow">全链条竞争情报自动化生成</p>
+      <div class="insights-grid">
+        <article class="card elevated">
+          <h3>确认竞品</h3>
+          <div id="competitors" class="card-body empty-state">寻找中...</div>
+        </article>
+        <article class="card elevated">
+          <h3>分析状态</h3>
+          <div id="insightStatus" class="card-body empty-state">准备就绪</div>
+        </article>
+        <article class="card elevated span-full">
+          <h3>调研摘要</h3>
+          <div id="summary" class="card-body empty-state">准备生成深度报告</div>
+        </article>
+      </div>
+      <div class="action-row">
+        <button class="btn-pill-dark" id="refreshBtn">刷新</button>
+        <button class="btn-pill-dark" id="rawReportBtn">报告原文</button>
+        <button class="btn-pill-dark" id="rawStateBtn">状态快照</button>
+        <button class="btn-pill-dark" id="rawProgressBtn">日志全集</button>
+      </div>
+      <pre id="rawData" aria-live="polite"></pre>
+    </div>
+  </section>
+
+  <!-- Log: Light Section -->
+  <section class="light-section" aria-labelledby="log-title">
+    <div class="section-inner-sm">
+      <h2 class="section-title" id="log-title">执行日志</h2>
+      <p class="eyebrow">底层决策路径全量透明</p>
+      <div id="roundLog">
+        <div class="card-body empty-state" style="text-align:left;">无活动记录</div>
+      </div>
+    </div>
+  </section>
 
   <script>
     let currentRunId = "";
     let poller = null;
-    const PHASE_CLASS = {
-      "初始化研究": "phase-initialize",
-      "扩展候选": "phase-expand",
-      "深入分析": "phase-deepen",
-      "交叉质疑": "phase-challenge",
-      "判断是否继续": "phase-decide",
-      "结束": "phase-stop",
-    };
 
-    function setText(id, text, isHtml = false) {
-      const node = document.getElementById(id);
-      if (isHtml) node.innerHTML = text;
-      else node.textContent = text;
-      if (text) node.classList.remove("empty");
-      else node.classList.add("empty");
+    function openMobileMenu() {
+      document.getElementById("mobileMenu").classList.add("open");
+      document.getElementById("hamburgerBtn").setAttribute("aria-expanded", "true");
+      document.body.style.overflow = "hidden";
+    }
+    function closeMobileMenu() {
+      document.getElementById("mobileMenu").classList.remove("open");
+      document.getElementById("hamburgerBtn").setAttribute("aria-expanded", "false");
+      document.body.style.overflow = "";
+    }
+    document.getElementById("hamburgerBtn").addEventListener("click", openMobileMenu);
+    document.getElementById("mobileMenuClose").addEventListener("click", closeMobileMenu);
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Escape") closeMobileMenu();
+    });
+
+    function setContent(id, text, isHtml) {
+      var node = document.getElementById(id);
+      if (!node) return;
+      if (isHtml) { node.innerHTML = text; } else { node.textContent = text; }
+      var isEmpty = !text || text.trim() === "" || text === "...";
+      if (isEmpty) { node.classList.add("empty-state"); } else { node.classList.remove("empty-state"); }
     }
 
     function renderStatus(data) {
       if (!data) return;
       currentRunId = data.run_id || currentRunId;
-      const lines = [
-        `ID: ${data.run_id || "-"}`,
-        `目标: ${data.target || "-"}`,
-        `阶段: ${data.phase || "-"}`,
-        `轮次: ${data.round_index ?? "-"}`,
-        `状态: ${data.stop_reason || "深度执行中..."}`,
-      ];
-      setText("status", lines.join("\\n"));
-    }
-
-    function renderProgress(events) {
-      const progressNode = document.getElementById("progress");
-      const logNode = document.getElementById("roundLog");
-      logNode.innerHTML = "";
-      if (!events || events.length === 0) {
-        progressNode.textContent = "暂无进度。";
-        progressNode.classList.add("empty");
-        logNode.innerHTML = '<li class="empty">暂无日志内容。</li>';
-        return;
-      }
-      progressNode.classList.remove("empty");
-      const currentEvent = events[events.length - 1];
-      progressNode.textContent = `${currentEvent.phase_label || currentEvent.phase} ➔ ${currentEvent.stage_label || currentEvent.stage} ➔ ${currentEvent.message}`;
-      
-      const currentRound = currentEvent.round_index ?? 0;
-      const roundEvents = events.filter(event => (event.round_index ?? 0) === currentRound);
-      const seen = new Set();
-      for (const event of roundEvents) {
-        const signature = `${event.phase_label}|${event.stage_label}|${event.message}`;
-        if (seen.has(signature)) continue;
-        seen.add(signature);
-        const li = document.createElement("li");
-        li.className = "log-item";
-        const phase = event.phase_label || event.phase;
-        const time = new Date().toLocaleTimeString("zh-CN", { hour12: false });
-        const badgeClass = PHASE_CLASS[phase] || "";
-        li.innerHTML = `
-          <span class="log-time">${time}</span>
-          <span class="log-phase ${badgeClass}">${phase}</span>
-          <span class="log-message"><strong>${event.stage_label || event.stage}</strong>：${event.message}</span>
-        `;
-        logNode.appendChild(li);
-      }
-    }
-
-    function renderReport(report) {
-      if (!report) return;
-      const competitors = document.getElementById("competitors");
-      competitors.innerHTML = "";
-      const confirmed = report.confirmed_competitors || [];
-      if (confirmed.length === 0) {
-        competitors.textContent = "暂无结果。";
-        competitors.classList.add("empty");
-      } else {
-        competitors.classList.remove("empty");
-        for (const item of confirmed) {
-          const span = document.createElement("span");
-          span.className = "pill";
-          span.textContent = item;
-          competitors.appendChild(span);
-        }
-      }
-
-      const uncertainty = report.key_uncertainties || [];
-      const uncertaintyText = uncertainty.length === 0
-        ? ""
-        : "\\n\\n【关键不确定项】\\n" + uncertainty.map(item => typeof item === "string" ? "• " + item : JSON.stringify(item)).join("\\n");
-      setText("summary", (report.target_summary || "暂无报告内容。") + uncertaintyText);
-    }
-
-    function renderOutcome(outcome) {
-      if (!outcome) return;
-      const lines = [
-        `系统状态: ${outcome.status || "-"}`,
-        `确认竞品数: ${outcome.confirmed_count ?? 0}`,
-        `最后停留阶段: ${outcome.latest_phase || "-"}`,
-        `停止因子: ${outcome.stop_reason || "执行中"}`,
-        "",
-        `核心决策路径: ${outcome.latest_plan || "无"}`,
-      ];
-      const diagnostics = outcome.recent_diagnostics || [];
-      if (diagnostics.length > 0) {
-        lines.push("", "最近系统诊断:");
-        diagnostics.forEach((item, index) => lines.push(`${index + 1}. ${item}`));
-      }
-      setText("outcome", lines.join("\\n"));
-    }
-
-    async function postJson(url, payload) {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) throw new Error(await response.text());
-      return response.json();
-    }
-
-    async function getJson(url) {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(await response.text());
-      return response.json();
-    }
-
-    async function startRun() {
-      const target = document.getElementById("target").value.trim();
-      if (!target) return;
-      const result = await postJson("/api/run", { target });
-      renderStatus(result.status);
-      renderProgress(result.progress || []);
-      renderReport(result.report || null);
-      renderOutcome(result.outcome || null);
-      if (poller) clearInterval(poller);
-      poller = setInterval(refreshStatus, 2000);
-    }
-
-    async function refreshStatus() {
-      if (!currentRunId) return;
-      const result = await getJson(`/api/run/${encodeURIComponent(currentRunId)}`);
-      renderStatus(result.status);
-      renderProgress(result.progress || []);
-      renderReport(result.report || null);
-      renderOutcome(result.outcome || null);
-      if (result.status && result.status.stop_reason && poller) {
-        clearInterval(poller);
-        poller = null;
-      }
-    }
-
-    async function loadReport() {
-      if (!currentRunId) return;
-      const result = await getJson(`/api/report/${encodeURIComponent(currentRunId)}`);
-      renderReport(result);
-    }
-
-    async function loadRaw(kind, title) {
-      if (!currentRunId) return;
-      const result = await getJson(`/api/raw/${encodeURIComponent(currentRunId)}?kind=${encodeURIComponent(kind)}`);
-      setText("rawTitle", title);
-      setText("rawData", result.content || "");
-    }
-
-    document.getElementById("startBtn").addEventListener("click", () => startRun().catch(err => alert(err.message)));
-    document.getElementById("refreshBtn").addEventListener("click", () => refreshStatus().catch(err => alert(err.message)));
-    document.getElementById("loadBtn").addEventListener("click", () => loadReport().catch(err => alert(err.message)));
-    document.getElementById("rawReportBtn").addEventListener("click", () => loadRaw("report", "最终报告 (JSON)").catch(err => alert(err.message)));
-    document.getElementById("rawStateBtn").addEventListener("click", () => loadRaw("state", "运行状态 (JSON)").catch(err => alert(err.message)));
-    document.getElementById("rawProgressBtn").addEventListener("click", () => loadRaw("progress", "进度日志 (JSONL)").catch(err => alert(err.message)));
-  </script>
-</body>
-</html>
-"""
+      var lines = [
+        "ID: " + (data.run_id || "-"),
+        "目标: " + (data.target || "-"),"""
 
 
 @dataclass
